@@ -23,7 +23,7 @@ http://d.10jqka.com.cn/v2/realhead/hs_002594/last.js
 #include <ctype.h>
 # include <openssl/md5.h>
 #include "json.h"
-
+#include "config.h"
 
 /* The number of elements in an array.  For example:
    static char a[] = "foo";     -- countof(a) == 4 (note terminating \0)
@@ -2586,7 +2586,7 @@ struct http_stat * get_url_stat(char *urlStr)
 		http_status = http_stat_new();
 		error_number = get_http(u, http_status);
 	}
-	if(error_number != NO_ERROR)
+	if(error_number != NO_ERROR && http_status->stat_code != HTTP_STATUS_FORBIDDEN)
 	{
 		fprintf(stderr, "%s\n", get_error_string(error_number));
 	}
@@ -2599,35 +2599,62 @@ struct http_stat * get_url_stat(char *urlStr)
 	*/
 	return http_status;
 }
-
 int main(int argc, char **argv)
 {
 	struct http_stat *http_status = NULL;
-	if(argc != 2)
+	FILE *fp = NULL;
+	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
+	cfg_head = cfg_parser("./getInfoFromWeb.conf");
+	char url[1024] = "";
+	if(cfg_head == NULL)
 	{
-		printf("usage: %s url\n", argv[0]);
+		fprintf(stderr, "configure file is empty\n");
 		return -1;
 	}
-	if((http_status = get_url_stat(argv[1])) != NULL)
+	while(1)
+	{
+		fprintf(stderr, "***********************************\n");
+	for(cfg_p = cfg_head; cfg_p != NULL; cfg_p = cfg_p->next)
+	{
+		if(snprintf(url, sizeof(url), "http://d.10jqka.com.cn/v2/realhead/hs_%s/last.js", cfg_p->stock_code) > sizeof(url))
+		{
+			fprintf(stderr, "stock code too long\n");
+			cfg_free(cfg_head);
+			return -1;
+		}
+	if((http_status = get_url_stat(url)) != NULL)
 	{
 #if 1
 		if(http_status->stat_code == HTTP_STATUS_OK)
 		{
 			JsonNode *json = NULL;
-			char *items = NULL;
-			if((items = strstr(http_status->content_data, "\"items\"")) != NULL)
+			char *items = NULL, *end = NULL;
+			if((items = strstr(http_status->content_data, "\"items\"")) != NULL && 
+					(end = strchr(items, '}')) != NULL)
 			{
-				items[strlen(items) - 2] = '\0';
 				items+=sizeof("\"items\":") - 1;
+				end[1] = '\0';
 			//	printf("%s\n", items);
+				json = json_decode(items);
+				if(json == NULL)
+				{
+					printf("json == NULL\n");
+				}
+				else
+				{
+					memcpy(cfg_p->stock_cur_price, json_encode(json_find_member(json, "10")), sizeof(cfg_p->stock_cur_price) - 1);
+					memcpy(cfg_p->stock_inc_rate, json_encode(json_find_member(json, "199112")), sizeof(cfg_p->stock_inc_rate) - 1);
+	//				printf("%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
+					fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+					json_delete(json);
+				}
 			}
-			json = json_decode(items);
-			if(json == NULL)
-			{
-				printf("json == NULL\n");
-			}
-			printf("%s %s%%\n", json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
-			json_delete(json);
+		}
+		else if(http_status->stat_code == HTTP_STATUS_FORBIDDEN)
+		{
+			fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+		//	fprintf(stderr, "Visit the web Frequently, wait 20 seconds\n");
+		//	sleep(20);
 		}
 #endif
 #if 0
@@ -2665,6 +2692,10 @@ int main(int argc, char **argv)
 	}
 	http_stat_free(http_status);
 	http_status = NULL;
+	sleep(1);
+	}
+	}
+	cfg_free(cfg_head);
 	return 0;
 }
 
