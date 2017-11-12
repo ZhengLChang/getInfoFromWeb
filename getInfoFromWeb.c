@@ -2611,7 +2611,7 @@ int main(int argc, char **argv)
 	if((http_status = get_url_stat(argv[1])) != NULL)
 	{
 #if 1
-		if(http_status->stat_code == 200)
+		if(http_status->stat_code == HTTP_STATUS_OK)
 		{
 			JsonNode *json = NULL;
 			char *items = NULL;
