@@ -1,0 +1,12 @@
+getInfoFromWeb:
+	Formetion:
+		stock_name stock_code
+	for example:
+		云南白药  000538
+
+  when a line is begin with '#',it will be ignore as the comment
+
+Plan:
+	support https
+	advance the property
+	advance the chunked transfer encoding(Transfer-Encoding: chunked)
