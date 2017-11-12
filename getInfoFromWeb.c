@@ -22,6 +22,7 @@ http://d.10jqka.com.cn/v2/realhead/hs_002594/last.js
 #include "base64.h"
 #include <ctype.h>
 # include <openssl/md5.h>
+#include "json.h"
 
 
 /* The number of elements in an array.  For example:
@@ -117,6 +118,7 @@ void *xrealloc (void *p, size_t n)
 	if((x)) \
 	{ free((x));(x)=NULL;}\
 }while(0)
+
 #define xfree_null(p) if (!(p)) ; else xfree (p)
 bool c_isxdigit (int c)
 {
@@ -127,6 +129,7 @@ int c_toupper (int c)
 {
 	return (c >= 'a' && c <= 'z' ? c - 'a' + 'A' : c);
 }
+
 /* Generally useful if you want to avoid arbitrary size limits but
    don't need a full dynamic array.  Assumes that BASEVAR points to a
    malloced array of TYPE objects (or possibly a NULL pointer, if
@@ -2402,7 +2405,7 @@ int get_http(struct url *u, struct http_stat *http_status)
 
 	while(1)
 	{
-		fprintf(stderr, "%s %d\n", __func__, __LINE__);
+//		fprintf(stderr, "%s %d\n", __func__, __LINE__);
 		if(sock < 0)
 		{
 			sock = connect_to_host (conn->host, conn->port);
@@ -2426,7 +2429,7 @@ int get_http(struct url *u, struct http_stat *http_status)
 			error_code = ERROR_READ;
 			goto END;
 		}
-		fprintf(stderr, "head:\n%s\n", head);
+//		fprintf(stderr, "head:\n%s\n", head);
 		http_stat_data_free(http_status);
 		get_response_head_stat(head, http_status);
 		if(head != NULL)
@@ -2455,7 +2458,7 @@ int get_http(struct url *u, struct http_stat *http_status)
 			{
 				int i = 0;
 				http_status->content_len = 0;
-				printf("%s\n", body_len);
+//				printf("%s\n", body_len);
 				for(i = 0; i < strlen(body_len); i++)
 				{
 					if(body_len[i] >= '0' && body_len[i] <= '9')
@@ -2607,6 +2610,27 @@ int main(int argc, char **argv)
 	}
 	if((http_status = get_url_stat(argv[1])) != NULL)
 	{
+#if 1
+		if(http_status->stat_code == 200)
+		{
+			JsonNode *json = NULL;
+			char *items = NULL;
+			if((items = strstr(http_status->content_data, "\"items\"")) != NULL)
+			{
+				items[strlen(items) - 2] = '\0';
+				items+=sizeof("\"items\":") - 1;
+			//	printf("%s\n", items);
+			}
+			json = json_decode(items);
+			if(json == NULL)
+			{
+				printf("json == NULL\n");
+			}
+			printf("%s %s%%\n", json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
+			json_delete(json);
+		}
+#endif
+#if 0
 		fprintf(stderr, "stat_code: %d\n", http_status->stat_code);
 		fprintf(stderr, "content_len: %d\n", http_status->content_len);
 		if(http_status->stat_data)
@@ -2637,6 +2661,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "content data dump to file failed\n");
 			}
 		}
+#endif
 	}
 	http_stat_free(http_status);
 	http_status = NULL;
