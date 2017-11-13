@@ -53,7 +53,7 @@ cfg_stock_t *cfg_parser(char *file_name)
 		{
 			cfg_free(cfg_head);
 			fprintf(stderr, "%s %d format %s error: %s\n", __func__, __LINE__, file_name, strerror(errno));	
-			return NULL;
+			goto ERR;
 		}
 		if(strlen(cfg_p->stock_code) > 6)
 		{
@@ -64,15 +64,27 @@ cfg_stock_t *cfg_parser(char *file_name)
 		cfg_p->next = cfg_head;
 		cfg_head = cfg_p;
 	}
+	if(fp != NULL)
+	{
+		fclose(fp);
+		fp = NULL;
+	}
 	return cfg_head;
+ERR:
+	if(fp != NULL)
+	{
+		fclose(fp);
+		fp = NULL;
+	}
+	return NULL;
 }
 void cfg_free(cfg_stock_t *head)
 {
 	if(head != NULL)
 	{
 		cfg_free(head->next);
+		free(head);
 	}
-	cfg_free(head);
 	return ;
 }
 

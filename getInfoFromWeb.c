@@ -2602,7 +2602,6 @@ struct http_stat * get_url_stat(char *urlStr)
 int main(int argc, char **argv)
 {
 	struct http_stat *http_status = NULL;
-	FILE *fp = NULL;
 	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
 	cfg_head = cfg_parser("./getInfoFromWeb.conf");
 	char url[1024] = "";
@@ -2613,7 +2612,6 @@ int main(int argc, char **argv)
 	}
 	while(1)
 	{
-		fprintf(stderr, "***********************************\n");
 	for(cfg_p = cfg_head; cfg_p != NULL; cfg_p = cfg_p->next)
 	{
 		if(snprintf(url, sizeof(url), "http://d.10jqka.com.cn/v2/realhead/hs_%s/last.js", cfg_p->stock_code) > sizeof(url))
@@ -2632,6 +2630,7 @@ int main(int argc, char **argv)
 			if((items = strstr(http_status->content_data, "\"items\"")) != NULL && 
 					(end = strchr(items, '}')) != NULL)
 			{
+				char *p = NULL;
 				items+=sizeof("\"items\":") - 1;
 				end[1] = '\0';
 			//	printf("%s\n", items);
@@ -2642,10 +2641,15 @@ int main(int argc, char **argv)
 				}
 				else
 				{
-					memcpy(cfg_p->stock_cur_price, json_encode(json_find_member(json, "10")), sizeof(cfg_p->stock_cur_price) - 1);
-					memcpy(cfg_p->stock_inc_rate, json_encode(json_find_member(json, "199112")), sizeof(cfg_p->stock_inc_rate) - 1);
+					memcpy(cfg_p->stock_cur_price, p = json_encode(json_find_member(json, "10")), sizeof(cfg_p->stock_cur_price) - 1);
+					free(p);
+					memcpy(cfg_p->stock_inc_rate, p = json_encode(json_find_member(json, "199112")), sizeof(cfg_p->stock_inc_rate) - 1);
+					free(p);
 	//				printf("%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
-					fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+					if(cfg_p->stock_cur_price[0] != '\0')
+					{
+						fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+					}
 					json_delete(json);
 				}
 			}
@@ -2653,6 +2657,7 @@ int main(int argc, char **argv)
 		else if(http_status->stat_code == HTTP_STATUS_FORBIDDEN)
 		{
 			fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+			//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 		//	fprintf(stderr, "Visit the web Frequently, wait 20 seconds\n");
 		//	sleep(20);
 		}
@@ -2692,8 +2697,8 @@ int main(int argc, char **argv)
 	}
 	http_stat_free(http_status);
 	http_status = NULL;
-	sleep(1);
 	}
+	sleep(4);
 	}
 	cfg_free(cfg_head);
 	return 0;
