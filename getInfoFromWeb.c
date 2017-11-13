@@ -177,6 +177,7 @@ typedef struct {
 struct http_stat
 {
 	int stat_code;
+	char *respond_head;
 	char *stat_data;
 	char *location;
 	int content_len;
@@ -197,6 +198,7 @@ void http_stat_data_free(struct http_stat *hs)
 {
 	if(hs != NULL)
 	{
+		xfree(hs->respond_head);
 		xfree(hs->stat_data);
 		xfree(hs->location);
 		xfree(hs->content_data);
@@ -2355,8 +2357,10 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method)
 
     request_set_header (req, "Connection", "Keep-Alive", rel_none);
     request_set_header (req, "Content-Encoding", "gzip", rel_none);
+   // request_set_header (req, "Cookie", "v=AVdubXP2waqui0Um-hR6VDAO4MCknCuVBXCvcqmEcyaN2Hm0sWy7ThVAP-W5", rel_none);
+   // request_set_header (req, "If-Modified-Since", "Mon, 13 Nov 2017 14:51:01 GMT", rel_none);
     request_set_header (req, "Referer", "http://stockpage.10jqka.com.cn/realHead_v2.html", rel_none);
-    request_set_header (req, "Cookie", "v=AVdubXP2waqui0Um-hR6VDAO4MCknCuVBXCvcqmEcyaN2Hm0sWy7ThVAP-W5", rel_none);
+    request_set_header (req, "Cookie", "spversion=20130314; Hm_lvt_78c58f01938e4d85eaf619eae71b4ed1=1510241482; Hm_lpvt_78c58f01938e4d85eaf619eae71b4ed1=1510584498; historystock=601989%7C*%7C000538%7C*%7C002594; v=AXlAAyEMB2ycAdv1usl8UsLUju5Whm04V3qRzJuu9aAfIpca49Z9COfKoZ4r", rel_none);
 #if 0
     request_set_header (req, "", "", rel_none);
     request_set_header (req, "", "", rel_none);
@@ -2364,10 +2368,11 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method)
     return req;
 }
 
-void get_response_head_stat(const char *head, struct http_stat *http_status)
+void get_response_head_stat(char *head, struct http_stat *http_status)
 {
 	struct response *resp = resp_new (head);
 	char *content_len_data = NULL;
+	http_status->respond_head = head;
 	http_status->stat_code = resp_status(resp, &http_status->stat_data);
 	http_status->connection_stat = resp_header_strdup (resp, "Connection");
 	if(http_status->connection_stat == NULL)
@@ -2432,10 +2437,12 @@ int get_http(struct url *u, struct http_stat *http_status)
 //		fprintf(stderr, "head:\n%s\n", head);
 		http_stat_data_free(http_status);
 		get_response_head_stat(head, http_status);
+#if 0
 		if(head != NULL)
 		{
 			xfree(head);
 		}
+#endif
 		if(http_status->content_len != 0 && sock >= 0)
 		{
 			if(http_status->content_data != NULL)
@@ -2535,10 +2542,12 @@ int get_http(struct url *u, struct http_stat *http_status)
 
 
 END:
+#if 0
 	if(head != NULL)
 	{
 		xfree(head);
 	}
+#endif
 	if(req != NULL)
 	{
 		request_free(req);
@@ -2656,6 +2665,7 @@ int main(int argc, char **argv)
 		}
 		else if(http_status->stat_code == HTTP_STATUS_FORBIDDEN)
 		{
+	//		fprintf(stderr, "head = %s\n", http_status->respond_head);
 			fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 			//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 		//	fprintf(stderr, "Visit the web Frequently, wait 20 seconds\n");
@@ -2698,7 +2708,7 @@ int main(int argc, char **argv)
 	http_stat_free(http_status);
 	http_status = NULL;
 	}
-	sleep(4);
+	sleep(1);
 	}
 	cfg_free(cfg_head);
 	return 0;
