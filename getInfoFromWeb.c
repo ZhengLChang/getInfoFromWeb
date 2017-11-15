@@ -2627,7 +2627,7 @@ int main(int argc, char **argv)
 	}
 	while(1)
 	{
-	for(cfg_p = cfg_head; cfg_p != NULL; cfg_p = cfg_p->next)
+	for(cfg_p = cfg_head; cfg_p != NULL; )
 	{
 		if(snprintf(url, sizeof(url), "http://d.10jqka.com.cn/v2/realhead/hs_%s/last.js", cfg_p->stock_code) > sizeof(url))
 		{
@@ -2679,12 +2679,13 @@ int main(int argc, char **argv)
 	//				printf("%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
 					if(cfg_p->stock_cur_price[0] != '\0')
 					{
-						fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+						fprintf(stderr, "%s%10s%10s%10s%% %s\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate, http_status->connection_stat);
 						//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 					}
 					json_delete(json);
 				}
 			}
+			cfg_p = cfg_p->next;
 		}
 		else if(http_status->stat_code == HTTP_STATUS_FORBIDDEN)
 		{
@@ -2693,6 +2694,11 @@ int main(int argc, char **argv)
 			//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 		//	fprintf(stderr, "Visit the web Frequently, wait 20 seconds\n");
 		//	sleep(20);
+		}
+		else
+		{
+			fprintf(stderr, "head = %s\n", http_status->respond_head);
+			sleep(20);
 		}
 #endif
 #if 0
