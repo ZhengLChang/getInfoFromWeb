@@ -2629,7 +2629,7 @@ int main(int argc, char **argv)
 	{
 	for(cfg_p = cfg_head; cfg_p != NULL; )
 	{
-		if(snprintf(url, sizeof(url), "http://d.10jqka.com.cn/v2/realhead/hs_%s/last.js", cfg_p->stock_code) > sizeof(url))
+		if(snprintf(url, sizeof(url), "http://d.10jqka.com.cn/v2/realhead/%s/last.js", cfg_p->stock_code) > sizeof(url))
 		{
 			fprintf(stderr, "stock code too long\n");
 			cfg_free(cfg_head);
@@ -2697,7 +2697,14 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			fprintf(stderr, "head = %s\n", http_status->respond_head);
+			if(http_status->respond_head != NULL)
+			{
+				fprintf(stderr, "head = %s\n", http_status->respond_head);
+			}
+			else
+			{
+				fprintf(stderr, "Unkonw error\n");
+			}
 			sleep(20);
 		}
 #endif

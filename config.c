@@ -49,13 +49,13 @@ cfg_stock_t *cfg_parser(char *file_name)
 			abort();
 		memcpy(cfg_p->stock_cur_price, "0.0", sizeof(cfg_p->stock_cur_price));
 		memcpy(cfg_p->stock_inc_rate, "0", sizeof(cfg_p->stock_inc_rate));
-		if(sscanf(file_line, "%16s %8s", cfg_p->stock_name, cfg_p->stock_code) != 2)
+		if(sscanf(file_line, "%16s %10s", cfg_p->stock_name, cfg_p->stock_code) != 2)
 		{
 			cfg_free(cfg_head);
 			fprintf(stderr, "%s %d format %s error: %s\n", __func__, __LINE__, file_name, strerror(errno));	
 			goto ERR;
 		}
-		if(strlen(cfg_p->stock_code) > 6)
+		if(strlen(cfg_p->stock_code) > 10)
 		{
 			free(cfg_p);
 			cfg_p = NULL;
