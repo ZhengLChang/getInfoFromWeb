@@ -80,6 +80,12 @@ enum {
   WAIT_FOR_WRITE = 2
 };
 
+void *xmemcpy(void *dest, size_t dest_len, void *src, size_t src_len)
+{
+	int min_len = MIN(dest_len, src_len);
+	return memcpy(dest, src, min_len);
+}
+
 void *xmalloc (size_t n)
 {
   void *p = malloc (n);
@@ -2642,7 +2648,7 @@ int main(int argc, char **argv)
 				char *p = NULL;
 				items+=sizeof("\"items\":") - 1;
 				end[1] = '\0';
-			//	printf("%s\n", items);
+		//		printf("%s\n", items);
 				json = json_decode(items);
 				if(json == NULL)
 				{
@@ -2650,14 +2656,31 @@ int main(int argc, char **argv)
 				}
 				else
 				{
-					memcpy(cfg_p->stock_cur_price, p = json_encode(json_find_member(json, "10")), sizeof(cfg_p->stock_cur_price) - 1);
-					free(p);
-					memcpy(cfg_p->stock_inc_rate, p = json_encode(json_find_member(json, "199112")), sizeof(cfg_p->stock_inc_rate) - 1);
-					free(p);
+					JsonNode *node = json_find_member(json, "10");
+					if(node != NULL)
+					{
+						if((p = json_stringify(node, NULL)) != NULL)
+						{
+							xmemcpy(cfg_p->stock_cur_price, sizeof(cfg_p->stock_cur_price) - 1, p, strlen(p) + 1);
+							cfg_p->stock_cur_price[sizeof(cfg_p->stock_cur_price) - 1] = '\0';
+							xfree(p);
+						}
+					}
+					node = json_find_member(json, "199112");
+					if(node != NULL)
+					{
+						if((p = json_stringify(node, NULL)) != NULL)
+						{
+							xmemcpy(cfg_p->stock_inc_rate, sizeof(cfg_p->stock_inc_rate) - 1, p, strlen(p) + 1);
+							cfg_p->stock_inc_rate[sizeof(cfg_p->stock_inc_rate) - 1] = '\0';
+							xfree(p);
+						}
+					}
 	//				printf("%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
 					if(cfg_p->stock_cur_price[0] != '\0')
 					{
 						fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+						//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 					}
 					json_delete(json);
 				}
@@ -2666,7 +2689,7 @@ int main(int argc, char **argv)
 		else if(http_status->stat_code == HTTP_STATUS_FORBIDDEN)
 		{
 	//		fprintf(stderr, "head = %s\n", http_status->respond_head);
-			fprintf(stderr, "%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
+	//		fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 			//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 		//	fprintf(stderr, "Visit the web Frequently, wait 20 seconds\n");
 		//	sleep(20);
