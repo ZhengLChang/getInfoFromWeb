@@ -24,7 +24,11 @@ http://d.10jqka.com.cn/v2/realhead/hs_002594/last.js
 # include <openssl/md5.h>
 #include "json.h"
 #include "config.h"
+#include "util.h"
+#include "signal.h"
 
+
+static bool is_exit = 0;
 /* The number of elements in an array.  For example:
    static char a[] = "foo";     -- countof(a) == 4 (note terminating \0)
    int a[5] = {1, 2};           -- countof(a) == 5
@@ -164,6 +168,21 @@ int c_toupper (int c)
 		fd=-1;	  \
 	} \
 }while(0)
+
+static void signal_handler(int sig)
+{
+	switch(sig)
+	{
+		case SIGINT:
+			is_exit = 1;
+			fprintf(stderr, "SIGINT\n");
+			break;
+		case SIGCHLD:
+			fprintf(stderr, "SIGINT\n");
+			break;
+	}
+	return;
+}
 
 enum rp {
   rel_none, rel_name, rel_value, rel_both
@@ -2618,14 +2637,18 @@ int main(int argc, char **argv)
 {
 	struct http_stat *http_status = NULL;
 	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
-	cfg_head = cfg_parser("./getInfoFromWeb.conf");
 	char url[1024] = "";
+
+	set_signal_handler (SIGCHLD, signal_handler);
+	set_signal_handler (SIGINT, signal_handler);
+
+	cfg_head = cfg_parser("./getInfoFromWeb.conf");
 	if(cfg_head == NULL)
 	{
 		fprintf(stderr, "configure file is empty\n");
 		return -1;
 	}
-	while(1)
+	while(!is_exit)
 	{
 	for(cfg_p = cfg_head; cfg_p != NULL; )
 	{
@@ -2744,8 +2767,10 @@ int main(int argc, char **argv)
 	http_stat_free(http_status);
 	http_status = NULL;
 	}
-	sleep(1);
+	sleep(10);
 	}
+	http_stat_free(http_status);
+	http_status = NULL;
 	cfg_free(cfg_head);
 	return 0;
 }
