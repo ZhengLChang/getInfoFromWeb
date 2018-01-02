@@ -178,7 +178,7 @@ static void signal_handler(int sig)
 			fprintf(stderr, "SIGINT\n");
 			break;
 		case SIGCHLD:
-			fprintf(stderr, "SIGINT\n");
+	//		fprintf(stderr, "SIGINT\n");
 			break;
 	}
 	return;
@@ -209,6 +209,7 @@ struct http_stat
 	char *content_data;
 	char *connection_stat;
 	char *WWWAuthenticate;
+	char *server;
 	char *ContentType;
 };
 
@@ -2384,8 +2385,6 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method)
     request_set_header (req, "Content-Encoding", "gzip", rel_none);
    // request_set_header (req, "Cookie", "v=AVdubXP2waqui0Um-hR6VDAO4MCknCuVBXCvcqmEcyaN2Hm0sWy7ThVAP-W5", rel_none);
    // request_set_header (req, "If-Modified-Since", "Mon, 13 Nov 2017 14:51:01 GMT", rel_none);
-    request_set_header (req, "Referer", "http://stockpage.10jqka.com.cn/realHead_v2.html", rel_none);
-    request_set_header (req, "Cookie", "spversion=20130314; Hm_lvt_78c58f01938e4d85eaf619eae71b4ed1=1510241482; Hm_lpvt_78c58f01938e4d85eaf619eae71b4ed1=1510584498; historystock=601989%7C*%7C000538%7C*%7C002594; v=AXlAAyEMB2ycAdv1usl8UsLUju5Whm04V3qRzJuu9aAfIpca49Z9COfKoZ4r", rel_none);
 #if 0
     request_set_header (req, "", "", rel_none);
     request_set_header (req, "", "", rel_none);
@@ -2417,6 +2416,7 @@ void get_response_head_stat(char *head, struct http_stat *http_status)
 	}
 	http_status->location = resp_header_strdup (resp, "Location");
 	http_status->WWWAuthenticate = resp_header_strdup (resp, "WWW-Authenticate");
+	http_status->server = resp_header_strdup (resp, "Server");
 	http_status->ContentType = resp_header_strdup (resp, "Content-Type");
 	resp_free(resp);
 	return ;
@@ -2534,23 +2534,6 @@ int get_http(struct url *u, struct http_stat *http_status)
 			error_code = NO_ERROR;
 			goto END;
 		}
-		else if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED &&
-				auth_finished == false && u->user && u->passwd)
-		{
-			if(known_authentication_scheme_p(http_status->WWWAuthenticate))
-			{
-				char *pth = url_full_path (u);
-				auth_finished = true;
-
-				request_set_header (req, "Authorization",
-						create_authorization_line (http_status->WWWAuthenticate,
-	                                   conn->user, conn->passwd,
-	                                   request_method (req),
-									   pth), rel_value);
-				xfree(pth);
-				continue;
-			}
-		}
 		else if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED)
 		{
 			error_code = ERROR_AUTHFAILED;
@@ -2620,158 +2603,82 @@ struct http_stat * get_url_stat(char *urlStr)
 		http_status = http_stat_new();
 		error_number = get_http(u, http_status);
 	}
-	if(error_number != NO_ERROR && http_status->stat_code != HTTP_STATUS_FORBIDDEN)
-	{
-		fprintf(stderr, "%s\n", get_error_string(error_number));
-	}
 
 	url_free(u);
 	u = NULL;
-	/*
-	http_stat_free(http_status);
-	http_status = NULL;
-	*/
 	return http_status;
 }
 int main(int argc, char **argv)
 {
 	struct http_stat *http_status = NULL;
-	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
 	char url[1024] = "";
+	char phoneAnswer[1024] = "";
+	char *p = NULL;
+	int i = 0, fork_num = 0;
 
 	set_signal_handler (SIGCHLD, signal_handler);
 	set_signal_handler (SIGINT, signal_handler);
 
-	cfg_head = cfg_parser("./getInfoFromWeb.conf");
-	if(cfg_head == NULL)
+	for(i = 0; i < 255; i++)
 	{
-		fprintf(stderr, "configure file is empty\n");
-		return -1;
-	}
-	while(!is_exit)
-	{
-	for(cfg_p = cfg_head; cfg_p != NULL; )
-	{
-		if(snprintf(url, sizeof(url), "http://d.10jqka.com.cn/v2/realhead/%s/last.js", cfg_p->stock_code) > sizeof(url))
+		if(snprintf(url, sizeof(url), "http://172.16.0.%d", i) > sizeof(url))
 		{
 			fprintf(stderr, "stock code too long\n");
-			cfg_free(cfg_head);
 			return -1;
 		}
-	if((http_status = get_url_stat(url)) != NULL)
+
+		if(fork() == 0)
+		{
+		if((http_status = get_url_stat(url)) != NULL)
+		{
+			if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED)
+			{
+				if(http_status != NULL &&
+						NULL != (p = strstr(http_status->WWWAuthenticate, "Digest realm")))
+				{
+					p += sizeof("Digest realm") - 1; 
+					while(isspace(*p) || *p == '\"' || *p == '=')
+					{
+						p++;
+					}
+					strncpy(phoneAnswer, p, sizeof(phoneAnswer));
+					p = phoneAnswer;
+					while(*p != '\"')
+					{p++;}
+					*p = '\0';
+					if(strcmp(phoneAnswer, "IP Phone Web Configuration") == 0)
+					{
+						fprintf(stderr, "%12s\t%s\n", url, "Atcom Device");
+					}
+					else
+					{
+						fprintf(stderr, "%12s\t%s\n", url, phoneAnswer);
+					}
+				}
+			}
+			if(http_status->stat_code == HTTP_STATUS_OK &&
+					http_status->server != NULL && 
+						strcmp(http_status->server, "embed httpd") == 0)
+			{
+				fprintf(stderr, "%12s\t%s\n", url, "Maybe Yealink Device");
+			}
+		}
+		http_stat_free(http_status);
+		http_status = NULL;
+		exit(0);
+		}
+		usleep(100);
+		fork_num++;
+	}
+	http_stat_free(http_status);
+	http_status = NULL;
+	int status;
+	while(fork_num > 0 && 
+			waitpid(&status))
 	{
-#if 1
-		if(http_status->stat_code == HTTP_STATUS_OK)
-		{
-			JsonNode *json = NULL;
-			char *items = NULL, *end = NULL;
-			if((items = strstr(http_status->content_data, "\"items\"")) != NULL && 
-					(end = strchr(items, '}')) != NULL)
-			{
-				char *p = NULL;
-				items+=sizeof("\"items\":") - 1;
-				end[1] = '\0';
-		//		printf("%s\n", items);
-				json = json_decode(items);
-				if(json == NULL)
-				{
-					printf("json == NULL\n");
-				}
-				else
-				{
-					JsonNode *node = json_find_member(json, "10");
-					if(node != NULL)
-					{
-						if((p = json_stringify(node, NULL)) != NULL)
-						{
-							xmemcpy(cfg_p->stock_cur_price, sizeof(cfg_p->stock_cur_price) - 1, p, strlen(p) + 1);
-							cfg_p->stock_cur_price[sizeof(cfg_p->stock_cur_price) - 1] = '\0';
-							xfree(p);
-						}
-					}
-					node = json_find_member(json, "199112");
-					if(node != NULL)
-					{
-						if((p = json_stringify(node, NULL)) != NULL)
-						{
-							xmemcpy(cfg_p->stock_inc_rate, sizeof(cfg_p->stock_inc_rate) - 1, p, strlen(p) + 1);
-							cfg_p->stock_inc_rate[sizeof(cfg_p->stock_inc_rate) - 1] = '\0';
-							xfree(p);
-						}
-					}
-	//				printf("%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
-					if(cfg_p->stock_cur_price[0] != '\0')
-					{
-						fprintf(stderr, "%s%10s%10s%10s%% %s\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate, http_status->connection_stat);
-						//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
-					}
-					json_delete(json);
-				}
-			}
-			cfg_p = cfg_p->next;
-		}
-		else if(http_status->stat_code == HTTP_STATUS_FORBIDDEN)
-		{
-	//		fprintf(stderr, "head = %s\n", http_status->respond_head);
-	//		fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
-			//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
-		//	fprintf(stderr, "Visit the web Frequently, wait 20 seconds\n");
-		//	sleep(20);
-		}
-		else
-		{
-			if(http_status->respond_head != NULL)
-			{
-				fprintf(stderr, "head = %s\n", http_status->respond_head);
-			}
-			else
-			{
-				fprintf(stderr, "Unkonw error\n");
-			}
-			sleep(20);
-		}
-#endif
-#if 0
-		fprintf(stderr, "stat_code: %d\n", http_status->stat_code);
-		fprintf(stderr, "content_len: %d\n", http_status->content_len);
-		if(http_status->stat_data)
-		{
-			fprintf(stderr, "stat_data: %s\n", http_status->stat_data);
-		}
-		if(http_status->location)
-		{
-			fprintf(stderr, "Location: %s\n", http_status->location);
-		}
-		if(http_status->WWWAuthenticate)
-		{
-			fprintf(stderr, "WWWAuthenticate: %s\n", http_status->WWWAuthenticate);
-		}
-		if(http_status->ContentType)
-		{
-			fprintf(stderr, "ContentType: %s\n", http_status->ContentType);
-		}
-		if(http_status->content_data)
-		{
-			//fprintf(stderr, "content_data: %s\n", http_status->content_data);
-			if(dump_to_file(http_status->content_data, http_status->content_len, "test"))
-			{
-				fprintf(stderr, "content data dump to file success\n");
-			}
-			else
-			{
-				fprintf(stderr, "content data dump to file failed\n");
-			}
-		}
-#endif
+		fork_num--;
 	}
-	http_stat_free(http_status);
-	http_status = NULL;
-	}
-	sleep(10);
-	}
-	http_stat_free(http_status);
-	http_status = NULL;
-	cfg_free(cfg_head);
+	fprintf(stderr, "Done\n");
 	return 0;
 }
 
