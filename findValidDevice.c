@@ -2674,7 +2674,7 @@ int main(int argc, char **argv)
 	http_status = NULL;
 	int status;
 	while(fork_num > 0 && 
-			waitpid(&status))
+			wait(&status))
 	{
 		fork_num--;
 	}
