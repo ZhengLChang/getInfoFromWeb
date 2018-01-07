@@ -2635,11 +2635,26 @@ struct http_stat * get_url_stat(char *urlStr)
 	*/
 	return http_status;
 }
+static void daemonize(void) {
+	signal(SIGTTOU, SIG_IGN);
+	signal(SIGTTIN, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+	if (0 != fork()) exit(0);
+
+	if (-1 == setsid()) exit(0);
+
+	signal(SIGHUP, SIG_IGN);
+
+	if (0 != fork()) exit(0);
+
+	if (0 != chdir("/")) exit(0);
+}
 int main(int argc, char **argv)
 {
 	struct http_stat *http_status = NULL;
 	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
 	char url[1024] = "";
+
 
 	set_signal_handler (SIGCHLD, signal_handler);
 	set_signal_handler (SIGINT, signal_handler);
@@ -2652,6 +2667,8 @@ int main(int argc, char **argv)
 	}
 
 	log_error_open();
+
+	daemonize();
 
 	while(!is_exit)
 	{
