@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include "log.h"
 
 int c_isspace (int c)
 {
@@ -592,37 +593,6 @@ ERR:
 	return -1;
 }
 
-ssize_t write_all(int fd, const void *buf, size_t count)
-{
-	ssize_t written = 0;
-
-	if(count > 0)
-	{
-		ssize_t r = write(fd, buf, count);
-		if(r < 0)
-		{
-			switch(errno)
-			{
-			case EINTR:
-				break;
-			default:
-				return -1;
-			}
-		}
-		else if(0 == r)
-		{
-			errno = EIO;
-			return -1;
-		}
-		else
-		{
-			written += r;
-			buf = r + (char const *)buf;
-			count -= r;
-		}
-	}
-	return written;
-}
 
 
 

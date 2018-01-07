@@ -26,6 +26,8 @@ http://d.10jqka.com.cn/v2/realhead/hs_002594/last.js
 #include "config.h"
 #include "util.h"
 #include "signal.h"
+#include "log.h"
+#include "buffer.h"
 
 
 static bool is_exit = 0;
@@ -2648,6 +2650,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "configure file is empty\n");
 		return -1;
 	}
+
+	log_error_open();
+
 	while(!is_exit)
 	{
 	for(cfg_p = cfg_head; cfg_p != NULL; )
@@ -2702,7 +2707,8 @@ int main(int argc, char **argv)
 	//				printf("%s%10s%10s%10s%%\n", cfg_p->stock_name, cfg_p->stock_code, json_encode(json_find_member(json, "10")), json_encode(json_find_member(json, "199112")));
 					if(cfg_p->stock_cur_price[0] != '\0')
 					{
-						fprintf(stderr, "%s%10s%10s%10s%% %s\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate, http_status->connection_stat);
+						log_error_write(__func__, __LINE__, "ssss", cfg_p->stock_name, cfg_p->stock_cur_price, "%", cfg_p->stock_inc_rate);
+						//fprintf(stderr, "%s%10s%10s%10s%% %s\n", cfg_p->stock_name, cfg_p->stock_code, cfg_p->stock_cur_price, cfg_p->stock_inc_rate, http_status->connection_stat);
 						//fprintf(stderr, "%s%10s\n", cfg_p->stock_cur_price, cfg_p->stock_inc_rate);
 					}
 					json_delete(json);
@@ -2728,7 +2734,7 @@ int main(int argc, char **argv)
 			{
 				fprintf(stderr, "Unkonw error\n");
 			}
-			sleep(20);
+			sleep(10);
 		}
 #endif
 #if 0
@@ -2772,6 +2778,8 @@ int main(int argc, char **argv)
 	http_stat_free(http_status);
 	http_status = NULL;
 	cfg_free(cfg_head);
+	
+	log_error_close();
 	return 0;
 }
 
