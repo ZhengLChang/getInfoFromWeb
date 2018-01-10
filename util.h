@@ -34,7 +34,7 @@ struct address_list;
 #define X2DIGITS_TO_NUM(h1, h2) ((XDIGIT_TO_NUM (h1) << 4) + XDIGIT_TO_NUM (h2))
 #define xzero(x) memset (&(x), '\0', sizeof (x))
 #define MIN(x, y) ((x) > (y) ? (y) : (x))
-
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 typedef void (* signalHandler) (int sig);
 void set_signal_handler(int sig,

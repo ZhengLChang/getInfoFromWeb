@@ -12,4 +12,5 @@ typedef struct cfg_stock
 
 cfg_stock_t *cfg_parser(char *file_name);
 void cfg_free(cfg_stock_t *head);
+int getCfgSize(cfg_stock_t *head);
 #endif

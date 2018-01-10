@@ -87,4 +87,13 @@ void cfg_free(cfg_stock_t *head)
 	}
 	return ;
 }
-
+int getCfgSize(cfg_stock_t *head)
+{
+	int i = 0;
+	while(head != NULL)
+	{
+		i++;
+		head = head->next;
+	}
+	return i;
+}

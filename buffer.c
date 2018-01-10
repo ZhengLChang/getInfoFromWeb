@@ -34,6 +34,27 @@ buffer *buffer_init_buffer(const buffer *src) {
 	return b;
 }
 
+buffer *buffer_init_printf (const char *fmt, ...)
+{
+  /* Use vasprintf. */
+  int ret;
+  va_list args;
+  char *str;
+  buffer *b = NULL;
+  va_start (args, fmt);
+  ret = vasprintf (&str, fmt, args);
+  va_end (args);
+  if (ret < 0 && errno == ENOMEM)
+  {
+	  abort();
+  }
+  else if (ret < 0)
+    return NULL;
+  b = buffer_init_string(str);
+  xfree(str);
+  return b;
+}
+
 buffer *buffer_init_string(const char *str) {
 	buffer *b = buffer_init();
 	buffer_copy_string(b, str);

@@ -35,6 +35,7 @@ typedef struct {
 /* create new buffer; either empty or copy given data */
 buffer* buffer_init(void);
 buffer* buffer_init_buffer(const buffer *src); /* src can  be NULL */
+buffer *buffer_init_printf (const char *fmt, ...);
 buffer* buffer_init_string(const char *str); /* str can  be NULL */
 
 void buffer_free(buffer *b); /* b can be NULL */
