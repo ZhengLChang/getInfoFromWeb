@@ -8,22 +8,8 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include "log.h"
-
-int c_isspace (int c)
-{
-  switch (c)
-    {
-    case ' ': case '\t': case '\n': case '\v': case '\f': case '\r':
-      return 1;
-    default:
-      return 0;
-    }
-}
-#define NEXT_CHAR(c, p) do {                    \
-  c = (unsigned char) *p++;                     \
-} while (c_isspace (c))
-
-#define IS_ASCII(c) (((c) & 0x80) == 0)
+#include "util.h"
+#include "http.h"
 
 ssize_t base64_decode (const char *base64, void *dest);
 size_t base64_encode (const void *data, size_t length, char *dest);
@@ -595,6 +581,131 @@ ERR:
 
 
 
+
+#define XNUM_TO_DIGIT(x) ("0123456789ABCDEF"[x] + 0)
+#define XNUM_TO_digit(x) ("0123456789abcdef"[x] + 0)
+/* The reverse of the above: convert a number in the [0, 16) range to
+   the ASCII representation of the corresponding hexadecimal digit.
+   `+ 0' is there so you can't accidentally use it as an lvalue.  */
+
+/* Dump the hexadecimal representation of HASH to BUF.  HASH should be
+   an array of 16 bytes containing the hash keys, and BUF should be a
+   buffer of 33 writable characters (32 for hex digits plus one for
+   zero termination).  */
+void dump_hash (char *buf, const unsigned char *hash)
+{
+  int i;
+
+  for (i = 0; i < MD5_HASHLEN; i++, hash++)
+    {
+      *buf++ = XNUM_TO_digit (*hash >> 4);
+      *buf++ = XNUM_TO_digit (*hash & 0xf);
+    }
+  *buf = '\0';
+}
+
+/* Take the line apart to find the challenge, and compose a digest
+   authorization header.  See RFC2069 section 2.1.2.  */
+char *digest_authentication_encode (const char *au, const char *user,
+                              const char *passwd, const char *method,
+                              const char *path)
+{
+  static char *realm, *opaque, *nonce;
+  static struct {
+    const char *name;
+    char **variable;
+  } options[] = {
+    { "realm", &realm },
+    { "opaque", &opaque },
+    { "nonce", &nonce }
+  };
+  char *res;
+  param_token name, value;
+
+  realm = opaque = nonce = NULL;
+
+  au += 6;                      /* skip over `Digest' */
+  while (extract_param (&au, &name, &value, ','))
+    {
+      size_t i;
+      size_t namelen = name.e - name.b;
+      for (i = 0; i < countof (options); i++)
+        if (namelen == strlen (options[i].name)
+            && 0 == strncmp (name.b, options[i].name,
+                             namelen))
+          {
+            *options[i].variable = strdupdelim (value.b, value.e);
+            break;
+          }
+    }
+  if (!realm || !nonce || !user || !passwd || !path || !method)
+    {
+      xfree_null (realm);
+      xfree_null (opaque);
+      xfree_null (nonce);
+      return NULL;
+    }
+
+  /* Calculate the digest value.  */
+  {
+	MD5_CTX ctx;
+    unsigned char hash[MD5_HASHLEN];
+    char a1buf[MD5_HASHLEN * 2 + 1], a2buf[MD5_HASHLEN * 2 + 1];
+    char response_digest[MD5_HASHLEN * 2 + 1];
+
+    /* A1BUF = H(user ":" realm ":" password) */
+    MD5_Init (&ctx);
+    MD5_Update (&ctx, (unsigned char *)user, strlen (user));
+    MD5_Update (&ctx, (unsigned char *)":", 1);
+    MD5_Update (&ctx, (unsigned char *)realm, strlen (realm));
+    MD5_Update (&ctx, (unsigned char *)":", 1);
+    MD5_Update (&ctx, (unsigned char *)passwd, strlen (passwd));
+    MD5_Final (hash, &ctx);
+    dump_hash (a1buf, hash);
+
+    /* A2BUF = H(method ":" path) */
+    MD5_Init (&ctx);
+    MD5_Update (&ctx, (unsigned char *)method, strlen (method));
+    MD5_Update (&ctx, (unsigned char *)":", 1);
+    MD5_Update (&ctx, (unsigned char *)path, strlen (path));
+    MD5_Final (hash, &ctx);
+    dump_hash (a2buf, hash);
+
+    /* RESPONSE_DIGEST = H(A1BUF ":" nonce ":" A2BUF) */
+    MD5_Init (&ctx);
+    MD5_Update (&ctx, (unsigned char *)a1buf, MD5_HASHLEN * 2);
+    MD5_Update (&ctx, (unsigned char *)":", 1);
+    MD5_Update (&ctx, (unsigned char *)nonce, strlen (nonce));
+    MD5_Update (&ctx, (unsigned char *)":", 1);
+    MD5_Update (&ctx, (unsigned char *)a2buf, MD5_HASHLEN * 2);
+    MD5_Final (hash, &ctx);
+    dump_hash (response_digest, hash);
+
+    res = xmalloc (strlen (user)
+                   + strlen (user)
+                   + strlen (realm)
+                   + strlen (nonce)
+                   + strlen (path)
+                   + 2 * MD5_HASHLEN /*strlen (response_digest)*/
+                   + (opaque ? strlen (opaque) : 0)
+                   + 128);
+    sprintf (res, "Digest \
+username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
+             user, realm, nonce, path, response_digest);
+//    fprintf(stderr, "%s\n", res);
+    if (opaque)
+      {
+        char *p = res + strlen (res);
+        strcat (p, ", opaque=\"");
+        strcat (p, opaque);
+        strcat (p, "\"");
+      }
+  }
+  xfree_null (realm);
+  xfree_null (opaque);
+  xfree_null (nonce);
+  return res;
+}
 
 
 
