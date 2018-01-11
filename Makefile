@@ -13,6 +13,7 @@ target+=$(patsubst %.c, %.o, ${src})
 springcleaning=$(patsubst %.c, %, $(wildcard ./*.c))
 springcleaning+=$(patsubst %.c, %.o, $(wildcard ./*.c))
 springcleaning+=$(patsubst %.c, %.o, ${src})
+springcleaning+=$(OutPut)
 
 .PHONY: all clean
 
