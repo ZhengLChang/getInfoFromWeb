@@ -203,4 +203,12 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method)
 char *basic_authentication_encode (const char *user, const char *passwd);
 int resp_header_locate (const struct response *resp, const char *name, int start,
                     const char **begptr, const char **endptr);
+void sockaddr_set_data (struct sockaddr *sa, const ip_address *ip, int port);
+socklen_t sockaddr_size (const struct sockaddr *sa);
+int sock_peek (int fd, char *buf, int bufsize);
+int connect_to_ip (const ip_address *ip, int port);
+int connect_to_host (const char *host, int port);
+int sock_read (int fd, char *buf, int bufsize);
+typedef const char *(*hunk_terminator_t) (const char *, const char *, int);
+char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long maxsize);
 #endif

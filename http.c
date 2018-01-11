@@ -723,7 +723,7 @@ struct address_list *lookup_host (const char *host)
     err = getaddrinfo (host, NULL, &hints, &res);
     if(err != 0)
     {
-    	fprintf(stderr, "%s %d: %s\n", __func__, __LINE__, gai_strerror (err));
+	log_error_write(__func__, __LINE__, "ss", host, gai_strerror (err));
     	return NULL;
     }
     al = address_list_from_addrinfo (res);
@@ -1165,272 +1165,6 @@ void get_response_head_stat(char *head, struct http_stat *http_status)
 	return ;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-int get_http(struct url *u, struct http_stat *http_status)
-{
-	struct request *req = NULL;
-	bool auth_finished = false;
-	struct url *conn = u;
-	int sock = -1;
-	char *head = NULL;
-	int error_code = NO_ERROR;
-
-	req = ini_request_head_without_auth(u, "GET");
-
-	while(1)
-	{
-//		fprintf(stderr, "%s %d\n", __func__, __LINE__);
-		if(sock < 0)
-		{
-			sock = connect_to_host (conn->host, conn->port);
-			if(sock < 0)
-			{
-				error_code = ERROR_HOST;
-				goto END;
-			}
-		}
-	    /* Send the request to server.  */
-	    if(request_send(req, sock) < 0)
-	    {
-	    	error_code = ERROR_WRITE;
-	    	goto END;
-	    }
-
-	    /*analysis response head*/
-		head = read_http_response_head (sock);
-		if(head == NULL || *head == '\0')
-		{
-			error_code = ERROR_READ;
-			goto END;
-		}
-//		fprintf(stderr, "head:\n%s\n", head);
-		http_stat_data_free(http_status);
-		get_response_head_stat(head, http_status);
-#if 0
-		if(head != NULL)
-		{
-			xfree(head);
-		}
-#endif
-		if(http_status->content_len != 0 && sock >= 0)
-		{
-			if(http_status->content_data != NULL)
-			{
-				xfree(http_status->content_data);
-				http_status->content_data = NULL;
-			}
-			http_status->content_data = xmalloc(http_status->content_len);
-			if(fd_read_body(sock, http_status->content_data,
-					http_status->content_len, http_status->content_len, &error_code) <= 0)
-				goto END;
-		}
-		else if(sock >= 0)
-		{
-			int size_tmp = -1;
-			char *body_len = NULL;
-#if 1
-			body_len = read_http_body_len_head(sock);
-			if(body_len != NULL)
-			{
-				int i = 0;
-				http_status->content_len = 0;
-//				printf("%s\n", body_len);
-				for(i = 0; i < strlen(body_len); i++)
-				{
-					if(body_len[i] >= '0' && body_len[i] <= '9')
-					{
-						http_status->content_len = http_status->content_len * 16 + body_len[i] - '0';
-					}
-					else if(body_len[i] >= 'a' && body_len[i] <= 'z')
-					{
-						http_status->content_len = http_status->content_len * 16 + body_len[i] - 'a' + 10;
-					}
-					else if(body_len[i] >= 'A' && body_len[i] <= 'Z')
-					{
-						http_status->content_len = http_status->content_len * 16 + body_len[i] - 'A' + 10;
-					}
-				}
-				xfree(body_len);
-			}
-#endif
-#define HTTP_CONTENT_MAX_LEN (http_status->content_len)
-			if(http_status->content_data != NULL)
-			{
-				xfree(http_status->content_data);
-				http_status->content_data = NULL;
-			}
-			if(http_status->content_len > 0)
-			{
-			http_status->content_data = xmalloc(HTTP_CONTENT_MAX_LEN);
-			//if((size_tmp = fd_read_body(sock, http_status->content_data,
-			//		HTTP_CONTENT_MAX_LEN, HTTP_CONTENT_MAX_LEN, &error_code)) <= 0)
-			if((size_tmp = fd_read_body(sock, http_status->content_data,
-					HTTP_CONTENT_MAX_LEN, HTTP_CONTENT_MAX_LEN, &error_code)) <= 0)
-			{
-				goto END;
-			}
-			http_status->content_len = size_tmp;
-			}
-#undef HTTP_CONTENT_MAX_LEN
-		}
-		if(http_status->stat_code == HTTP_STATUS_OK)
-		{
-			error_code = NO_ERROR;
-			goto END;
-		}
-		else if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED &&
-				auth_finished == false && u->user && u->passwd)
-		{
-			if(known_authentication_scheme_p(http_status->WWWAuthenticate))
-			{
-				char *pth = url_full_path (u);
-				auth_finished = true;
-
-				request_set_header (req, "Authorization",
-						create_authorization_line (http_status->WWWAuthenticate,
-	                                   conn->user, conn->passwd,
-	                                   request_method (req),
-									   pth), rel_value);
-				xfree(pth);
-				continue;
-			}
-		}
-		else if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED)
-		{
-			error_code = ERROR_AUTHFAILED;
-			break;
-		}
-		else
-		{error_code = ERROR_READ;break;}
-		if(http_status->connection_stat && 0 == strncasecmp(http_status->connection_stat, "Close", sizeof("Close") - 1) &&
-				sock >= 0)
-		{
-			CLOSE_FD(sock);
-		}
-	}
-
-
-END:
-#if 0
-	if(head != NULL)
-	{
-		xfree(head);
-	}
-#endif
-	if(req != NULL)
-	{
-		request_free(req);
-	}
-	if(sock >= 0)
-	{
-		CLOSE_FD(sock);
-	}
-	return error_code;
-}
-#if 0
-bool dump_to_file(const char *data, size_t data_len, const char *file_name)
-{
-	int fd = -1;
-	const char *p = "./dump.file";
-	assert(file_name != NULL && file_name[0] != '\0');
-	if(file_name[strlen(file_name) - 1] != '\\')
-	{
-		p = file_name;
-	}
-	fd = open(p, O_CREAT | O_WRONLY | O_CLOEXEC | O_TRUNC, S_IRWXU);
-	if(fd != -1)
-	{
-		write_all(fd, data, data_len);
-		close(fd);
-		fd = -1;
-		return true;
-	}
-	fprintf(stderr, "%s %d, %s\n", __func__, __LINE__, strerror(errno));
-	return false;
-}
-#endif
-struct http_stat * get_url_stat(char *urlStr)
-{
-	struct url *u = NULL;
-	int error_number = NO_ERROR;
-	struct http_stat *http_status = NULL;
-	if(urlStr == NULL || urlStr[0] == '\0')
-	{
-		return NULL;
-	}
-	u = url_parse(urlStr, &error_number);
-	if(u != NULL && error_number == NO_ERROR)
-	{
-		http_status = http_stat_new();
-		error_number = get_http(u, http_status);
-	}
-	if(error_number != NO_ERROR && http_status->stat_code != HTTP_STATUS_FORBIDDEN)
-	{
-		fprintf(stderr, "%s\n", get_error_string(error_number));
-	}
-
-	url_free(u);
-	u = NULL;
-	/*
-	http_stat_free(http_status);
-	http_status = NULL;
-	*/
-	return http_status;
-}
-
 /* Create the HTTP authorization request header.  When the
    `WWW-Authenticate' response header is seen, according to the
    authorization scheme specified in that header (`Basic' and `Digest'
@@ -1590,4 +1324,291 @@ int resp_header_locate (const struct response *resp, const char *name, int start
         }
     }
   return -1;
+}
+
+/* Fill SA as per the data in IP and PORT.  SA shoult point to struct
+   sockaddr_storage if ENABLE_IPV6 is defined, to struct sockaddr_in
+   otherwise.  */
+
+void sockaddr_set_data (struct sockaddr *sa, const ip_address *ip, int port)
+{
+  switch (ip->family)
+    {
+    case AF_INET:
+      {
+        struct sockaddr_in *sin = (struct sockaddr_in *)sa;
+        xzero (*sin);
+        sin->sin_family = AF_INET;
+        sin->sin_port = htons (port);
+        sin->sin_addr = ip->data.d4;
+        break;
+      }
+    case AF_INET6:
+      {
+        struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sa;
+        xzero (*sin6);
+        sin6->sin6_family = AF_INET6;
+        sin6->sin6_port = htons (port);
+        sin6->sin6_addr = ip->data.d6;
+        break;
+      }
+    default:
+      abort ();
+    }
+}
+/* Return the size of the sockaddr structure depending on its
+   family.  */
+socklen_t sockaddr_size (const struct sockaddr *sa)
+{
+  switch (sa->sa_family)
+    {
+    case AF_INET:
+      return sizeof (struct sockaddr_in);
+    case AF_INET6:
+      return sizeof (struct sockaddr_in6);
+    default:
+      abort ();
+    }
+  return 0;
+}
+/* Connect via TCP to the specified address and port.
+
+   If PRINT is non-NULL, it is the host name to print that we're
+   connecting to.  */
+
+int connect_to_ip (const ip_address *ip, int port)
+{
+	struct sockaddr_storage ss;
+	struct sockaddr *sa = (struct sockaddr *)&ss;
+	int sock;
+	/* Store the sockaddr info to SA.  */
+	sockaddr_set_data (sa, ip, port);
+	/* Create the socket of the family appropriate for the address.  */
+	sock = socket (sa->sa_family, SOCK_STREAM, 0);
+	if (sock < 0)
+		goto err;
+	if(0 != connect(sock, sa, sockaddr_size (sa)))
+	{
+		goto err;
+	}
+	return sock;
+err:
+	return -1;
+}
+
+/* Connect via TCP to a remote host on the specified port.
+
+   HOST is resolved as an Internet host name.  If HOST resolves to
+   more than one IP address, they are tried in the order returned by
+   DNS until connecting to one of them succeeds.  */
+
+int connect_to_host (const char *host, int port)
+{
+  int i, start, end;
+  int sock;
+
+  struct address_list *al = lookup_host (host);
+
+  if(al == NULL)
+  {
+	  return -1;
+  }
+  address_list_get_bounds (al, &start, &end);
+  for (i = start; i < end; i++)
+    {
+      const ip_address *ip = address_list_address_at (al, i);
+      sock = connect_to_ip (ip, port);
+      if (sock >= 0)
+        {
+          /* Success. */
+          address_list_set_connected (al);
+          address_list_release (al);
+          return sock;
+        }
+
+      /* The attempt to connect has failed.  Continue with the loop
+         and try next address. */
+
+      address_list_set_faulty (al, i);
+    }
+  address_list_release (al);
+
+  return -1;
+}
+
+
+/* Like fd_read, except it provides a "preview" of the data that will
+   be read by subsequent calls to fd_read.  Specifically, it copies no
+   more than BUFSIZE bytes of the currently available data to BUF and
+   returns the number of bytes copied.  Return values and timeout
+   semantics are the same as those of fd_read.
+
+   CAVEAT: Do not assume that the first subsequent call to fd_read
+   will retrieve the same amount of data.  Reading can return more or
+   less data, depending on the TCP implementation and other
+   circumstances.  However, barring an error, it can be expected that
+   all the peeked data will eventually be read by fd_read.  */
+int sock_peek (int fd, char *buf, int bufsize)
+{
+  int res;
+  do
+    res = recv (fd, buf, bufsize, MSG_PEEK);
+  while (res == -1 && errno == EINTR);
+  return res;
+}
+
+int sock_read (int fd, char *buf, int bufsize)
+{
+  int res;
+  do
+    res = read (fd, buf, bufsize);
+  while (res == -1 && errno == EINTR);
+  return res;
+}
+
+/* Read a hunk of data from FD, up until a terminator.  The hunk is
+   limited by whatever the TERMINATOR callback chooses as its
+   terminator.  For example, if terminator stops at newline, the hunk
+   will consist of a line of data; if terminator stops at two
+   newlines, it can be used to read the head of an HTTP response.
+   Upon determining the boundary, the function returns the data (up to
+   the terminator) in malloc-allocated storage.
+
+   In case of read error, NULL is returned.  In case of EOF and no
+   data read, NULL is returned and errno set to 0.  In case of having
+   read some data, but encountering EOF before seeing the terminator,
+   the data that has been read is returned, but it will (obviously)
+   not contain the terminator.
+
+   The TERMINATOR function is called with three arguments: the
+   beginning of the data read so far, the beginning of the current
+   block of peeked-at data, and the length of the current block.
+   Depending on its needs, the function is free to choose whether to
+   analyze all data or just the newly arrived data.  If TERMINATOR
+   returns NULL, it means that the terminator has not been seen.
+   Otherwise it should return a pointer to the charactre immediately
+   following the terminator.
+
+   The idea is to be able to read a line of input, or otherwise a hunk
+   of text, such as the head of an HTTP request, without crossing the
+   boundary, so that the next call to fd_read etc. reads the data
+   after the hunk.  To achieve that, this function does the following:
+
+   1. Peek at incoming data.
+
+   2. Determine whether the peeked data, along with the previously
+      read data, includes the terminator.
+
+      2a. If yes, read the data until the end of the terminator, and
+          exit.
+
+      2b. If no, read the peeked data and goto 1.
+
+   The function is careful to assume as little as possible about the
+   implementation of peeking.  For example, every peek is followed by
+   a read.  If the read returns a different amount of data, the
+   process is retried until all data arrives safely.
+
+   SIZEHINT is the buffer size sufficient to hold all the data in the
+   typical case (it is used as the initial buffer size).  MAXSIZE is
+   the maximum amount of memory this function is allowed to allocate,
+   or 0 if no upper limit is to be enforced.
+
+   This function should be used as a building block for other
+   functions -- see fd_read_line as a simple example.  */
+
+char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long maxsize)
+{
+  long bufsize = sizehint;
+  char *hunk = xmalloc (bufsize);
+  int tail = 0;                 /* tail position in HUNK */
+
+  assert (!maxsize || maxsize >= bufsize);
+
+  while (1)
+    {
+      const char *end;
+      int pklen, rdlen, remain;
+
+      /* First, peek at the available data. */
+
+      pklen = sock_peek (fd, hunk + tail, bufsize - 1 - tail);
+      if (pklen < 0)
+        {
+          xfree (hunk);
+          return NULL;
+        }
+      end = terminator (hunk, hunk + tail, pklen);
+      if (end)
+        {
+          /* The data contains the terminator: we'll drain the data up
+             to the end of the terminator.  */
+          remain = end - (hunk + tail);
+          assert (remain >= 0);
+          if (remain == 0)
+            {
+              /* No more data needs to be read. */
+              hunk[tail] = '\0';
+              return hunk;
+            }
+          if (bufsize - 1 < tail + remain)
+            {
+              bufsize = tail + remain + 1;
+              hunk = xrealloc (hunk, bufsize);
+            }
+        }
+      else
+        /* No terminator: simply read the data we know is (or should
+           be) available.  */
+        remain = pklen;
+
+      /* Now, read the data.  Note that we make no assumptions about
+         how much data we'll get.  (Some TCP stacks are notorious for
+         read returning less data than the previous MSG_PEEK.)  */
+
+      rdlen = sock_read (fd, hunk + tail, remain);
+      if (rdlen < 0)
+        {
+          xfree_null (hunk);
+          return NULL;
+        }
+      tail += rdlen;
+      hunk[tail] = '\0';
+
+      if (rdlen == 0)
+        {
+          if (tail == 0)
+            {
+              /* EOF without anything having been read */
+              xfree (hunk);
+              errno = 0;
+              return NULL;
+            }
+          else
+            /* EOF seen: return the data we've read. */
+            return hunk;
+        }
+      if (end && rdlen == remain)
+        /* The terminator was seen and the remaining data drained --
+           we got what we came for.  */
+        return hunk;
+
+      /* Keep looping until all the data arrives. */
+
+      if (tail == bufsize - 1)
+        {
+          /* Double the buffer size, but refuse to allocate more than
+             MAXSIZE bytes.  */
+          if (maxsize && bufsize >= maxsize)
+            {
+              xfree (hunk);
+              errno = ENOMEM;
+              return NULL;
+            }
+          bufsize <<= 1;
+          if (maxsize && bufsize > maxsize)
+            bufsize = maxsize;
+          hunk = xrealloc (hunk, bufsize);
+        }
+    }
 }

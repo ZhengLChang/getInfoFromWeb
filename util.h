@@ -130,14 +130,6 @@ int select_fd (int fd, double maxtime, int wait_for);
 bool is_fd_ready(int fd, double maxtime, int wait_for, int *error_code);
 const char *file_len_terminator (const char *start, const char *peeked, int peeklen);
 char *concat_strings (const char *str0, ...);
-void sockaddr_set_data (struct sockaddr *sa, const ip_address *ip, int port);
-socklen_t sockaddr_size (const struct sockaddr *sa);
-int sock_peek (int fd, char *buf, int bufsize);
-int connect_to_ip (const ip_address *ip, int port);
-int connect_to_host (const char *host, int port);
-int sock_read (int fd, char *buf, int bufsize);
-typedef const char *(*hunk_terminator_t) (const char *, const char *, int);
-char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long maxsize);
 const char * get_error_string(int error_number);
 struct error_data
 {
