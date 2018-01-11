@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 	}
 
 	log_error_open();
-//	daemonize();
+	daemonize();
 
 	/*init*/
 	url_data_array = alloca(cfg_size * sizeof(user_url_data_t));
