@@ -57,6 +57,7 @@ struct http_stat
 	char *content_data;
 	char *connection_stat;
 	char *WWWAuthenticate;
+	char *server;
 	char *ContentType;
 };
 enum {
