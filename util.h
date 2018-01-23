@@ -124,7 +124,7 @@ char *xstrdup(const char *s);
 inline char *strpbrk_or_eos (const char *s, const char *accept);
 char *strdupdelim (const char *beg, const char *end);
 char *aprintf (const char *fmt, ...);
-static bool is_valid_ipv4_address (const char *str, const char *end);
+bool is_valid_ipv4_address (const char *str, const char *end);
 bool is_valid_ipv6_address (const char *str, const char *end);
 int select_fd (int fd, double maxtime, int wait_for);
 bool is_fd_ready(int fd, double maxtime, int wait_for, int *error_code);

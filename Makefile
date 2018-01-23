@@ -2,8 +2,8 @@
 CC=gcc
 INCLUDE=
 LIB=-lpthread -lcrypto
-#CFLAGS=-g -Wall -Werror -D_REENTRANT ${LIB} ${INCLUDE}
-CFLAGS=-g ${LIB} ${INCLUDE}
+CFLAGS=-g -Wall -Werror -D_REENTRANT -D_GNU_SOURCE ${LIB} ${INCLUDE}
+#CFLAGS=-g ${LIB} ${INCLUDE}
 MainFile=main.c
 #OutPut=$(patsubst %.c, %, ${MainFile})
 OutPut=getInfoFromWeb

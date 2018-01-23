@@ -1,4 +1,5 @@
 #include "http.h"
+#include "log.h"
 
 struct http_stat * http_stat_new()
 {

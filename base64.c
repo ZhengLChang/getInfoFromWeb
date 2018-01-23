@@ -13,7 +13,7 @@
 
 ssize_t base64_decode (const char *base64, void *dest);
 size_t base64_encode (const void *data, size_t length, char *dest);
-static unsigned char * base64_decode_lighttpd(char *out, const char *in);
+unsigned char * base64_decode_lighttpd(char *out, const char *in);
 ssize_t base64_decode_for_big_buffer_to_file(const char *base64, int fd);
 #if 0
 int main(int argc, char *argv)
@@ -262,7 +262,7 @@ ssize_t base64_decode_for_big_buffer_to_file(const char *base64, int fd) {
   return write_size;
 }
 
-static unsigned char * base64_decode_lighttpd(char *out, const char *in) {
+unsigned char * base64_decode_lighttpd(char *out, const char *in) {
 	unsigned char *result;
 	int ch, j = 0, k;
 	size_t i;
@@ -289,7 +289,7 @@ static unsigned char * base64_decode_lighttpd(char *out, const char *in) {
 };
 
 
-	result = out;
+	result = (unsigned char *)out;
 
 	ch = in[0];
 	/* run through the whole string, converting as we go */

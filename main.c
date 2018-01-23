@@ -6,6 +6,7 @@
 #include "json.h"
 #include <alloca.h>
 #include <time.h>
+#include "log.h"
 
 static bool is_exit = 0;
 static void signal_handler(int sig)
@@ -58,7 +59,6 @@ typedef struct {
 int main(int argc, char **argv)
 {
 	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
-	char url[1024] = "";
 	int i = 0, cfg_size = 0;
 	user_url_data_t* url_data_array = NULL;
 	time_t cur_time = 0, last_time = 0, interval = (2 * 60);
@@ -68,6 +68,8 @@ int main(int argc, char **argv)
 	int nfds = 0;
 	int error_code = NO_ERROR;
 
+	UNUSED(cur_time);
+	UNUSED(last_time);
 	set_signal_handler (SIGCHLD, signal_handler);
 	set_signal_handler (SIGINT, signal_handler);
 
@@ -318,9 +320,6 @@ int main(int argc, char **argv)
 						url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
 					}
 				}
-				ERROR_CLEAN:
-
-					continue;
 				}
 
 			}
