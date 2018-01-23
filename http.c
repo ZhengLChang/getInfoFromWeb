@@ -1161,6 +1161,7 @@ void get_response_head_stat(char *head, struct http_stat *http_status)
 	}
 	http_status->location = resp_header_strdup (resp, "Location");
 	http_status->WWWAuthenticate = resp_header_strdup (resp, "WWW-Authenticate");
+	http_status->server = resp_header_strdup (resp, "Server");
 	http_status->ContentType = resp_header_strdup (resp, "Content-Type");
 	resp_free(resp);
 	return ;
