@@ -66,7 +66,6 @@ int main(int argc, char **argv)
 	}
 
 	log_error_open();
-
 	daemonize();
 
 
@@ -276,6 +275,11 @@ int main(int argc, char **argv)
 		{
 			buffer_free(url_data_array[i].urloriginal);
 			url_data_array[i].urloriginal = NULL;
+		}
+		if(url_data_array[i].method != NULL)
+		{
+			buffer_free(url_data_array[i].method);
+			url_data_array[i].method = NULL;
 		}
 		if(url_data_array[i].urlparse != NULL)
 		{

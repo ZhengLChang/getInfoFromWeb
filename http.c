@@ -16,8 +16,10 @@ void http_stat_data_free(struct http_stat *hs)
 		xfree(hs->stat_data);
 		xfree(hs->location);
 		xfree(hs->content_data);
+		xfree(hs->server);
 		xfree(hs->connection_stat);
 		xfree(hs->WWWAuthenticate);
+		xfree(hs->transferEncoding);
 		xfree(hs->ContentType);
 		hs->stat_code = 0;
 		hs->content_len = 0;
@@ -1206,12 +1208,14 @@ void get_response_body(user_url_data_t *url_data)
 			if(body_len == NULL || body_len[0] == '0')
 			{
 				log_error_write(__func__, __LINE__, "s", "read respond end");
+				xfree(body_len);
 				break;
 			}
 			else if((body_len[0] == '\r' && body_len[1] == '\n' ) ||
 					body_len[0] == '\n')
 			{
 				log_error_write(__func__, __LINE__, "s", "read respond empty line");
+				xfree(body_len);
 				continue;
 			}
 
