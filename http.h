@@ -161,6 +161,7 @@ typedef enum{
 	CONNECT_STATUS_RESPONSE_GET,
 	CONNECT_STATUS_ERROR,
 	CONNECT_STATUS_CLOSE, /*beginning and ending status*/
+	CONNECT_STATUS_NOTLOOP,
 }connect_status_t;
 
 typedef struct {

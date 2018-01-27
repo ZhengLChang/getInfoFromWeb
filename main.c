@@ -110,11 +110,16 @@ int main(int argc, char **argv)
 	while(!is_exit)
 	{
 		FD_ZERO(&rfds);
+		nfds = 0;
 		memset(&timeout, 0, sizeof(timeout));
 		timeout.tv_sec = interval;
 
 		for(i = 0; i < cfg_size; i++)
 		{
+			if(url_data_array[i].connect_status == CONNECT_STATUS_NOTLOOP)
+			{
+				continue;
+			}
 			if(url_data_array[i].urlparse != NULL &&
 					url_data_array[i].connect_status == CONNECT_STATUS_CLOSE)
 			{
@@ -149,6 +154,10 @@ int main(int argc, char **argv)
 			nfds = MAX(nfds, url_data_array[i].sock + 1);
 		}
 		{
+			if(nfds <= 0)
+			{
+				break;
+			}
 			retval = select(nfds, &rfds, NULL, NULL, &timeout);
 			if(retval == -1)
 			{
@@ -162,7 +171,8 @@ int main(int argc, char **argv)
 			for(i = 0; i < cfg_size && retval > 0; i++)
 			{
 				if(url_data_array[i].connect_status == CONNECT_STATUS_ERROR ||
-						url_data_array[i].connect_status == CONNECT_STATUS_CLOSE)
+						url_data_array[i].connect_status == CONNECT_STATUS_CLOSE ||
+						url_data_array[i].connect_status == CONNECT_STATUS_NOTLOOP)
 				{
 					continue;
 				}
@@ -189,6 +199,7 @@ int main(int argc, char **argv)
 							{
 								url_data_array[i].connect_status = CONNECT_STATUS_UNAUTHORIZED;
 								request_head_add_authorization_head(&url_data_array[i]);
+								continue;
 							}
 					}
 					else if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED)
@@ -247,9 +258,9 @@ int main(int argc, char **argv)
 						}
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
-							http_status->content_data != NULL)
+							http_status->content_data == NULL)
 					{
-						log_error_write(__func__, __LINE__, "s", "Data is NULL");
+						log_error_write(__func__, __LINE__, "s", "Data is Empty");
 					}
 					if(http_status->connection_stat && 0 == strncasecmp(http_status->connection_stat, "Keep-Alive", sizeof("Keep-Alive") - 1) &&
 							sock >= 0)
@@ -272,7 +283,8 @@ int main(int argc, char **argv)
 		for(i = 0; i < cfg_size; i++)
 		{
 			if(url_data_array[i].connect_status == CONNECT_STATUS_ERROR ||
-				url_data_array[i].connect_status == CONNECT_STATUS_CLOSE)
+				url_data_array[i].connect_status == CONNECT_STATUS_CLOSE ||
+				url_data_array[i].connect_status == CONNECT_STATUS_NOTLOOP)
 			{
 			http_stat_data_free(&url_data_array[i].http_status);
 			memset(&url_data_array[i].http_status, 0, sizeof(url_data_array[i].http_status));
@@ -280,7 +292,10 @@ int main(int argc, char **argv)
 			request_remove_header (url_data_array[i].req, "Authorization");
 			*/
 			CLOSE_FD(url_data_array[i].sock);
-			url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
+			if(url_data_array[i].connect_status != CONNECT_STATUS_NOTLOOP)
+			{
+				url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
+			}
 			}
 		}
 		sleep(1);

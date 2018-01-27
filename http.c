@@ -1184,12 +1184,13 @@ void get_response_body(user_url_data_t *url_data)
 		{
 			xfree(http_status->content_data);
 		}
-		http_status->content_data = xmalloc(http_status->content_len);
+		http_status->content_data = xmalloc(http_status->content_len + 1);
 		if(fd_read_body(sock, http_status->content_data,
 				http_status->content_len, http_status->content_len, &error_code) <= 0)
 		{
 			url_data->connect_status = CONNECT_STATUS_ERROR;
 		}
+		http_status->content_data[http_status->content_len] = '\0';
 	}
 	else if(http_status->transferEncoding != NULL &&
 			0 == strncasecmp(http_status->transferEncoding, ARRAY_STR_LEN("chunked")))
@@ -1215,6 +1216,10 @@ void get_response_body(user_url_data_t *url_data)
 					body_len[0] == '\n')
 			{
 				log_error_write(__func__, __LINE__, "s", "read respond empty line");
+				/*add \0*/
+				http_status->content_data[http_status->content_len] = '\0';
+				/*debug to display content*/
+				log_error_write(__func__, __LINE__, "s", http_status->content_data);
 				xfree(body_len);
 				continue;
 			}
@@ -1224,7 +1229,7 @@ void get_response_body(user_url_data_t *url_data)
 
 			if(will_read_len > 0)
 			{
-				http_status->content_data = xrealloc(http_status->content_data, http_status->content_len + will_read_len);
+				http_status->content_data = xrealloc(http_status->content_data, http_status->content_len + will_read_len + 1);
 				//if((size_tmp = fd_read_body(sock, http_status->content_data,
 				//		HTTP_CONTENT_MAX_LEN, HTTP_CONTENT_MAX_LEN, &error_code)) <= 0)
 				if((size_tmp = fd_read_body(sock, http_status->content_data + http_status->content_len,
@@ -1233,7 +1238,6 @@ void get_response_body(user_url_data_t *url_data)
 					url_data->connect_status = CONNECT_STATUS_ERROR;
 				}
 				http_status->content_len += size_tmp;
-				log_error_write(__func__, __LINE__, "s", http_status->content_data);
 			}
 		}
 	}
