@@ -21,7 +21,9 @@
 #include <stdbool.h>
 #include "base64.h"
 #include "util.h"
+#include "buffer.h"
 #include "httpstatus.h"
+#include "config.h"
 #define HTTP_RESPONSE_MAX_SIZE 65536
 
 enum authentication_scheme
@@ -56,6 +58,7 @@ struct http_stat
 	int content_len;
 	char *content_data;
 	char *connection_stat;
+	char *transferEncoding;
 	char *WWWAuthenticate;
 	char *server;
 	char *ContentType;
@@ -150,6 +153,27 @@ typedef struct {
   const char *b, *e;
 } param_token;
 
+typedef enum{
+	CONNECT_STATUS_CONNECTED,
+	CONNECT_STATUS_UNAUTHORIZED,
+	CONNECT_STATUS_AUTHORIZATION_SENT,
+	CONNECT_STATUS_REQUEST_SENT,
+	CONNECT_STATUS_RESPONSE_GET,
+	CONNECT_STATUS_ERROR,
+	CONNECT_STATUS_CLOSE, /*beginning and ending status*/
+}connect_status_t;
+
+typedef struct {
+	buffer *urloriginal;
+	struct url *urlparse;
+	connect_status_t connect_status;
+	struct request *req;
+	buffer *method;
+	struct http_stat http_status;
+	int sock;
+	cfg_stock_t *cfg_p;
+}user_url_data_t;
+
 struct http_stat * http_stat_new();
 void http_stat_data_free(struct http_stat *hs);
 void http_stat_free(struct http_stat *hs);
@@ -194,6 +218,7 @@ bool known_authentication_scheme_p (const char *au);
 bool extract_param (const char **source, param_token *name, param_token *value,
                char separator);
 void get_response_head_stat(char *head, struct http_stat *http_status);
+void get_response_body(user_url_data_t *url_data);
 int get_http(struct url *u, struct http_stat *http_status);
 struct http_stat * get_url_stat(char *urlStr);
 char *create_authorization_line (const char *au, const char *user,
@@ -201,6 +226,7 @@ char *create_authorization_line (const char *au, const char *user,
                            const char *path);
 void add_authentication_head_to_request(struct url *u, struct request *req, const char *www_authenticate);
 struct request *ini_request_head_without_auth(struct url *u, const char *method);
+bool request_head_add_authorization_head(user_url_data_t *url_data);
 char *basic_authentication_encode (const char *user, const char *passwd);
 int resp_header_locate (const struct response *resp, const char *name, int start,
                     const char **begptr, const char **endptr);

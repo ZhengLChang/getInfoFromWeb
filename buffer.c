@@ -61,6 +61,15 @@ buffer *buffer_init_string(const char *str) {
 	return b;
 }
 
+const char *buffer_get_c_string(const buffer *buf)
+{
+	if(buf != NULL)
+	{
+		return buf->ptr;
+	}
+	return NULL;
+}
+
 void buffer_free(buffer *b) {
 	if (NULL == b) return;
 

@@ -1148,6 +1148,10 @@ void get_response_head_stat(char *head, struct http_stat *http_status)
 	{
 		http_status->connection_stat = resp_header_strdup (resp, "Keep-Alive");
 	}
+	if(http_status->transferEncoding == NULL)
+	{
+		http_status->transferEncoding = resp_header_strdup (resp, "Transfer-Encoding");
+	}
 	content_len_data = resp_header_strdup (resp, "Content-Length");
 	if(content_len_data != NULL)
 	{
@@ -1164,6 +1168,71 @@ void get_response_head_stat(char *head, struct http_stat *http_status)
 	http_status->server = resp_header_strdup (resp, "Server");
 	http_status->ContentType = resp_header_strdup (resp, "Content-Type");
 	resp_free(resp);
+	return ;
+}
+
+void get_response_body(user_url_data_t *url_data)
+{
+	struct http_stat *http_status = &url_data->http_status;
+	int sock = url_data->sock;
+	int error_code = NO_ERROR;
+	if(http_status->content_len != 0)
+	{
+		if(http_status->content_data != NULL)
+		{
+			xfree(http_status->content_data);
+		}
+		http_status->content_data = xmalloc(http_status->content_len);
+		if(fd_read_body(sock, http_status->content_data,
+				http_status->content_len, http_status->content_len, &error_code) <= 0)
+		{
+			url_data->connect_status = CONNECT_STATUS_ERROR;
+		}
+	}
+	else if(http_status->transferEncoding != NULL &&
+			0 == strncasecmp(http_status->transferEncoding, ARRAY_STR_LEN("chunked")))
+	{
+		int size_tmp = -1, will_read_len = 0;
+		char *body_len = NULL;
+		if(http_status->content_data != NULL)
+		{
+			xfree(http_status->content_data);
+			http_status->content_data = NULL;
+		}
+		http_status->content_len = 0;
+		for(; ;)
+		{
+			body_len = read_http_body_len_head(sock);
+			if(body_len == NULL || body_len[0] == '0')
+			{
+				log_error_write(__func__, __LINE__, "s", "read respond end");
+				break;
+			}
+			else if((body_len[0] == '\r' && body_len[1] == '\n' ) ||
+					body_len[0] == '\n')
+			{
+				log_error_write(__func__, __LINE__, "s", "read respond empty line");
+				continue;
+			}
+
+			will_read_len = str_hex_to_dec((const char *)body_len);
+			xfree(body_len);
+
+			if(will_read_len > 0)
+			{
+				http_status->content_data = xrealloc(http_status->content_data, http_status->content_len + will_read_len);
+				//if((size_tmp = fd_read_body(sock, http_status->content_data,
+				//		HTTP_CONTENT_MAX_LEN, HTTP_CONTENT_MAX_LEN, &error_code)) <= 0)
+				if((size_tmp = fd_read_body(sock, http_status->content_data + http_status->content_len,
+						will_read_len, will_read_len, &error_code)) <= 0)
+				{
+					url_data->connect_status = CONNECT_STATUS_ERROR;
+				}
+				http_status->content_len += size_tmp;
+				log_error_write(__func__, __LINE__, "s", http_status->content_data);
+			}
+		}
+	}
 	return ;
 }
 
@@ -1250,6 +1319,27 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method)
 #endif
     return req;
 }
+
+bool request_head_add_authorization_head(user_url_data_t *url_data)
+{
+	char *pth = NULL;
+	if(url_data == NULL ||
+			url_data->req == NULL ||
+			url_data->urlparse == NULL ||
+			url_data->urlparse->user == NULL ||
+			url_data->urlparse->passwd == NULL)
+		return false;
+
+	pth = url_full_path (url_data->urlparse);
+	request_set_header (url_data->req, "Authorization",
+			create_authorization_line (url_data->http_status.WWWAuthenticate,
+					url_data->urlparse->user, url_data->urlparse->passwd,
+						   request_method (url_data->req),
+						   pth), rel_value);
+	xfree(pth);
+	return true;
+}
+
 
 /* Authorization support: We support three authorization schemes:
 

@@ -29,6 +29,7 @@ struct address_list;
    char *a[] = {                -- countof(a) == 3
      "foo", "bar", "baz"
    }; */
+#define ARRAY_STR_LEN(x) x, x ? sizeof(x) - 1: 0
 #define countof(array) (sizeof (array) / sizeof ((array)[0]))
 #define XDIGIT_TO_NUM(h) ((h) < 'A' ? (h) - '0' : c_toupper (h) - 'A' + 10)
 #define X2DIGITS_TO_NUM(h1, h2) ((XDIGIT_TO_NUM (h1) << 4) + XDIGIT_TO_NUM (h2))
@@ -131,6 +132,7 @@ bool is_fd_ready(int fd, double maxtime, int wait_for, int *error_code);
 const char *file_len_terminator (const char *start, const char *peeked, int peeklen);
 char *concat_strings (const char *str0, ...);
 const char * get_error_string(int error_number);
+int str_hex_to_dec(const char *hex);
 struct error_data
 {
 	int error_num;

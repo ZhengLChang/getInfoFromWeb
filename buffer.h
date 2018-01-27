@@ -37,6 +37,7 @@ buffer* buffer_init(void);
 buffer* buffer_init_buffer(const buffer *src); /* src can  be NULL */
 buffer *buffer_init_printf (const char *fmt, ...);
 buffer* buffer_init_string(const char *str); /* str can  be NULL */
+const char *buffer_get_c_string(const buffer *buf);
 
 void buffer_free(buffer *b); /* b can be NULL */
 /* truncates to used == 0; frees large buffers, might keep smaller ones for reuse */

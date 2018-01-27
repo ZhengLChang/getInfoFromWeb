@@ -38,24 +38,7 @@ static void daemonize(void) {
 	if (0 != chdir("/")) exit(0);
 }
 
-typedef enum{
-	CONNECT_STATUS_CONNECTED,
-	CONNECT_STATUS_REQUEST_SENT,
-	CONNECT_STATUS_RESPONSE_GET,
-	CONNECT_STATUS_ERROR,
-	CONNECT_STATUS_CLOSE, /*beginning and ending status*/
-}connect_status_t;
 
-typedef struct {
-	buffer *urloriginal;
-	struct url *urlparse;
-	connect_status_t connect_status;
-	struct request *req;
-	struct http_stat http_status;
-	int sock;
-	int is_auth_finished;
-	cfg_stock_t *cfg_p;
-}user_url_data_t;
 int main(int argc, char **argv)
 {
 	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
@@ -68,6 +51,7 @@ int main(int argc, char **argv)
 	int nfds = 0;
 	int error_code = NO_ERROR;
 
+	UNUSED(error_code);
 	UNUSED(cur_time);
 	UNUSED(last_time);
 	set_signal_handler (SIGCHLD, signal_handler);
@@ -82,7 +66,9 @@ int main(int argc, char **argv)
 	}
 
 	log_error_open();
+
 	daemonize();
+
 
 	/*init*/
 	url_data_array = alloca(cfg_size * sizeof(user_url_data_t));
@@ -98,8 +84,8 @@ int main(int argc, char **argv)
 		p->urloriginal = buffer_init_printf("http://d.10jqka.com.cn/v2/realhead/%s/last.js", cfg_p->stock_code);
 		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
 		p->connect_status = CONNECT_STATUS_CLOSE;
-		p->req = ini_request_head_without_auth(p->urlparse, "GET");
-		p->is_auth_finished = 0;
+		p->method = buffer_init_string("GET");
+		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method));
 		p->cfg_p = cfg_p;
 		p->sock = -1;
 		memset(&p->http_status, 0, sizeof(p->http_status));
@@ -128,12 +114,17 @@ int main(int argc, char **argv)
 			}
 
 		    if(url_data_array[i].sock >= 0 &&
-		    		url_data_array[i].connect_status == CONNECT_STATUS_CONNECTED &&
+		    		(url_data_array[i].connect_status == CONNECT_STATUS_CONNECTED ||
+		    				url_data_array[i].connect_status == CONNECT_STATUS_UNAUTHORIZED) &&
 		    		request_send(url_data_array[i].req, url_data_array[i].sock) < 0)
 		    {
 		    	log_error_write(__func__, __LINE__, "sbs", "Send data to ",url_data_array[i].urloriginal," failed");
 		    	url_data_array[i].connect_status = CONNECT_STATUS_ERROR;
 		    	continue;
+		    }
+		    else if(url_data_array[i].connect_status == CONNECT_STATUS_UNAUTHORIZED)
+		    {
+		    	url_data_array[i].connect_status = CONNECT_STATUS_AUTHORIZATION_SENT;
 		    }
 		    else
 		    {
@@ -173,95 +164,29 @@ int main(int argc, char **argv)
 						continue;
 					}
 					get_response_head_stat(head, http_status);
-					if(http_status->content_len != 0)
-					{
-						if(http_status->content_data != NULL)
-						{
-							xfree(http_status->content_data);
-						}
-						http_status->content_data = xmalloc(http_status->content_len);
-						if(fd_read_body(sock, http_status->content_data,
-								http_status->content_len, http_status->content_len, &error_code) <= 0)
-						{
-							url_data_array[i].connect_status = CONNECT_STATUS_ERROR;
-							continue;
-						}
-					}
-					else
-					{
-						int size_tmp = -1;
-						char *body_len = NULL;
-			#if 1
-						body_len = read_http_body_len_head(sock);
-						if(body_len != NULL)
-						{
-							int i = 0;
-							http_status->content_len = 0;
-							for(i = 0; i < strlen(body_len); i++)
-							{
-								if(body_len[i] >= '0' && body_len[i] <= '9')
-								{
-									http_status->content_len = http_status->content_len * 16 + body_len[i] - '0';
-								}
-								else if(body_len[i] >= 'a' && body_len[i] <= 'z')
-								{
-									http_status->content_len = http_status->content_len * 16 + body_len[i] - 'a' + 10;
-								}
-								else if(body_len[i] >= 'A' && body_len[i] <= 'Z')
-								{
-									http_status->content_len = http_status->content_len * 16 + body_len[i] - 'A' + 10;
-								}
-							}
-							xfree(body_len);
-						}
-			#endif
-			#define HTTP_CONTENT_MAX_LEN (http_status->content_len)
-						if(http_status->content_data != NULL)
-						{
-							xfree(http_status->content_data);
-							http_status->content_data = NULL;
-						}
-						if(http_status->content_len > 0)
-						{
-						http_status->content_data = xmalloc(HTTP_CONTENT_MAX_LEN);
-						//if((size_tmp = fd_read_body(sock, http_status->content_data,
-						//		HTTP_CONTENT_MAX_LEN, HTTP_CONTENT_MAX_LEN, &error_code)) <= 0)
-						if((size_tmp = fd_read_body(sock, http_status->content_data,
-								HTTP_CONTENT_MAX_LEN, HTTP_CONTENT_MAX_LEN, &error_code)) <= 0)
-						{
-							url_data_array[i].connect_status = CONNECT_STATUS_ERROR;;
-						}
-						http_status->content_len = size_tmp;
-						}
-			#undef HTTP_CONTENT_MAX_LEN
-					}
+					get_response_body(&url_data_array[i]);
 
 					if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED &&
-							url_data_array[i].is_auth_finished == false &&
+							url_data_array[i].connect_status != CONNECT_STATUS_AUTHORIZATION_SENT &&
 							url_data_array[i].urlparse->user && url_data_array[i].urlparse->passwd)
 					{
 							if(known_authentication_scheme_p(http_status->WWWAuthenticate))
 							{
-								char *pth = url_full_path (url_data_array[i].urlparse);
-								url_data_array[i].is_auth_finished = true;
-
-									request_set_header (url_data_array[i].req, "Authorization",
-											create_authorization_line (http_status->WWWAuthenticate,
-													url_data_array[i].urlparse->user, url_data_array[i].urlparse->passwd,
-														   request_method (url_data_array[i].req),
-														   pth), rel_value);
-									xfree(pth);
+								url_data_array[i].connect_status = CONNECT_STATUS_UNAUTHORIZED;
+								request_head_add_authorization_head(&url_data_array[i]);
 							}
 					}
 					else if(http_status->stat_code == HTTP_STATUS_UNAUTHORIZED)
 					{
+						log_error_write(__func__, __LINE__, "s", "Unauthorized");
 						request_remove_header (url_data_array[i].req, "Authorization");
 					}
 
-
-				{
+					/*end of communication*/
+					{
 					cfg_p = url_data_array[i].cfg_p;
-					if(http_status->stat_code == HTTP_STATUS_OK)
+					if(http_status->stat_code == HTTP_STATUS_OK &&
+							http_status->content_data != NULL)
 					{
 						JsonNode *json = NULL;
 						char *items = NULL, *end = NULL;
@@ -306,6 +231,11 @@ int main(int argc, char **argv)
 							}
 						}
 					}
+					else if(http_status->stat_code == HTTP_STATUS_OK &&
+							http_status->content_data != NULL)
+					{
+						log_error_write(__func__, __LINE__, "s", "Data is NULL");
+					}
 					if(http_status->connection_stat && 0 == strncasecmp(http_status->connection_stat, "Keep-Alive", sizeof("Keep-Alive") - 1) &&
 							sock >= 0)
 					{
@@ -331,7 +261,6 @@ int main(int argc, char **argv)
 			{
 			http_stat_data_free(&url_data_array[i].http_status);
 			memset(&url_data_array[i].http_status, 0, sizeof(url_data_array[i].http_status));
-			url_data_array[i].is_auth_finished = false;
 		/*
 			request_remove_header (url_data_array[i].req, "Authorization");
 			*/
@@ -365,7 +294,6 @@ int main(int argc, char **argv)
 		}
 		http_stat_data_free(&url_data_array[i].http_status);
 		memset(&url_data_array[i].http_status, 0, sizeof(url_data_array[i].http_status));
-		url_data_array[i].is_auth_finished = false;
 		url_data_array[i].cfg_p = NULL;
 	}
 	cfg_free(cfg_head);

@@ -400,4 +400,27 @@ char *concat_strings (const char *str0, ...)
   return ret;
 }
 
+int str_hex_to_dec(const char *hex)
+{
+	int dec = 0, i = 0;
+	if(hex == NULL)
+		return dec;
+	for(i = 0; i < strlen(hex); i++)
+	{
+		if(hex[i] >= '0' && hex[i] <= '9')
+		{
+			dec = dec * 16 + hex[i] - '0';
+		}
+		else if(hex[i] >= 'a' && hex[i] <= 'z')
+		{
+			dec = dec * 16 + hex[i] - 'a' + 10;
+		}
+		else if(hex[i] >= 'A' && hex[i] <= 'Z')
+		{
+			dec = dec * 16 + hex[i] - 'A' + 10;
+		}
+	}
+	return dec;
+}
+
 
