@@ -50,10 +50,26 @@ int main(int argc, char **argv)
 	int retval = 0;
 	int nfds = 0;
 	int error_code = NO_ERROR;
+	const char *p = NULL;
+	int pid = 0;
 
 	UNUSED(error_code);
 	UNUSED(cur_time);
 	UNUSED(last_time);
+	p = (const char *)strrchr(argv[0], '/');
+	if(p == NULL)
+	{
+		p = argv[0];
+	}
+	else
+	{
+		p++;
+	}
+	if((pid = getPidByName(p)) > 0 && pid != getpid())
+	{
+		log_error_write(__func__, __LINE__, "ss", p, " is running");
+		return (-1);
+	}
 	set_signal_handler (SIGCHLD, signal_handler);
 	set_signal_handler (SIGINT, signal_handler);
 

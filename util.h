@@ -19,7 +19,13 @@
 # include <openssl/md5.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <dirent.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include "base64.h"
+#include "log.h"
 
 struct address_list;
 #define UNUSED(x) ( (void)(x) )
@@ -133,6 +139,7 @@ const char *file_len_terminator (const char *start, const char *peeked, int peek
 char *concat_strings (const char *str0, ...);
 const char * get_error_string(int error_number);
 int str_hex_to_dec(const char *hex);
+int getPidByName(const char *name);
 struct error_data
 {
 	int error_num;

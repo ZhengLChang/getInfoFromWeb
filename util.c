@@ -423,4 +423,123 @@ int str_hex_to_dec(const char *hex)
 	return dec;
 }
 
+static void getProcessName(const int pid, char *pid_name, int pid_size);
+/*return:
+ *      -1 not found
+ *      not-negative is pid number
+ * */
+int getPidByName(const char *name)
+{
+	DIR *dir_p = NULL;
+	struct dirent entry, *res = NULL;
+	int pid = -1, error_ret = 0;
+	if(name == NULL)
+	{
+		return -1;
+	}
+
+	dir_p = opendir("/proc");
+	if(NULL == dir_p)
+	{
+		printf("opendir error: %s\n", strerror(errno));
+		goto ERR;
+	}
+	for(;;)
+	{
+		error_ret = readdir_r(dir_p, &entry, &res);
+		if(error_ret != 0)
+		{
+			printf("readdir_r error: %s\n", strerror(error_ret));
+			goto ERR;
+		}
+		if(res == NULL)
+		{
+			break;
+		}
+		if(isdigit(res->d_name[0]))
+		{
+			char pid_name[56] = "";
+
+			pid = atoi(res->d_name);
+
+			getProcessName(pid, pid_name, sizeof(pid_name));
+			if(pid_name[0] != '\0' && strcmp(pid_name, name) == 0)
+			{
+				break;
+			}
+		}
+		pid = -1;
+	}
+
+
+	if(dir_p != NULL)
+	{
+		closedir(dir_p);
+		dir_p = NULL;
+	}
+	return pid;
+ERR:
+	if(dir_p != NULL)
+	{
+		closedir(dir_p);
+		dir_p = NULL;
+	}
+	return -1;
+}
+
+
+static void getProcessName(const int pid, char *pid_name, int pid_size)
+{
+	int fd = -1;
+	char name[56] = "", str[56] = "", buf[1024] = "";
+	int size = 0;
+	struct stat file_stat;
+
+	pid_name[0] = '\0';
+	size = snprintf(name, sizeof(name) - 1, "/proc/%d/status", pid);
+	if(size <= 0 || size > sizeof(name) - 1)
+	{
+		log_error_write(__func__, __LINE__, "s", "snprintf error");
+		goto ERR;
+	}
+
+	fd = open(name, O_RDONLY);
+	if(fd < 0)
+	{
+		log_error_write(__func__, __LINE__, "ss", "open error: ", strerror(errno));
+		goto ERR;
+	}
+	if(fstat(fd, &file_stat) < 0)
+	{
+		log_error_write(__func__, __LINE__, "ss", "fstat error: ", strerror(errno));
+		goto ERR;
+	}
+	size = read(fd, buf, sizeof(buf) - 1);
+	if(size <= 0)
+	{
+		log_error_write(__func__, __LINE__, "ss", "read error: ", strerror(errno));
+		goto ERR;
+	}
+	buf[size] = '\0';
+
+	if(sscanf(buf, "%s %s", str, pid_name) != 2)
+	{
+		goto ERR;
+	}
+
+	if(fd != -1)
+	{
+		close(fd);
+		fd = -1;
+	}
+
+	return ;
+ERR:
+	if(fd !=  -1)
+	{
+		close(fd);
+		fd = -1;
+	}
+	return ;
+}
 
