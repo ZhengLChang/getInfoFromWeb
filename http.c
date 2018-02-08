@@ -1223,7 +1223,6 @@ void get_response_body(user_url_data_t *url_data)
 				xfree(body_len);
 				continue;
 			}
-
 			will_read_len = str_hex_to_dec((const char *)body_len);
 			xfree(body_len);
 
@@ -1481,15 +1480,19 @@ int connect_to_ip (const ip_address *ip, int port)
 	struct sockaddr_storage ss;
 	struct sockaddr *sa = (struct sockaddr *)&ss;
 	int sock;
+	int flags = 0;
 	/* Store the sockaddr info to SA.  */
 	sockaddr_set_data (sa, ip, port);
 	/* Create the socket of the family appropriate for the address.  */
 	sock = socket (sa->sa_family, SOCK_STREAM, 0);
 	if (sock < 0)
 		goto err;
+	flags = fcntl(sock, F_GETFL, 0);
+	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 	if(0 != connect(sock, sa, sockaddr_size (sa)))
 	{
-		goto err;
+		if(errno != EINPROGRESS)
+			goto err;
 	}
 	return sock;
 err:
@@ -1686,12 +1689,16 @@ char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long ma
             }
           else
             /* EOF seen: return the data we've read. */
+          {
             return hunk;
+          }
         }
       if (end && rdlen == remain)
         /* The terminator was seen and the remaining data drained --
            we got what we came for.  */
+      {
         return hunk;
+      }
 
       /* Keep looping until all the data arrives. */
 
@@ -1711,4 +1718,14 @@ char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long ma
           hunk = xrealloc (hunk, bufsize);
         }
     }
+}
+
+bool is_sock_connected(int sock)
+{
+	char buf[2] = "";
+	if(sock >= 0)
+	{
+		return (recv(sock, buf, 1, MSG_PEEK) != 0 && errno != EINPROGRESS);
+	}
+	return false;
 }

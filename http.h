@@ -154,6 +154,7 @@ typedef struct {
 } param_token;
 
 typedef enum{
+	CONNECT_STATUS_CONNECTING,
 	CONNECT_STATUS_CONNECTED,
 	CONNECT_STATUS_UNAUTHORIZED,
 	CONNECT_STATUS_AUTHORIZATION_SENT,
@@ -172,7 +173,6 @@ typedef struct {
 	buffer *method;
 	struct http_stat http_status;
 	int sock;
-	cfg_stock_t *cfg_p;
 }user_url_data_t;
 
 struct http_stat * http_stat_new();
@@ -239,4 +239,5 @@ int connect_to_host (const char *host, int port);
 int sock_read (int fd, char *buf, int bufsize);
 typedef const char *(*hunk_terminator_t) (const char *, const char *, int);
 char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long maxsize);
+bool is_sock_connected(int sock);
 #endif

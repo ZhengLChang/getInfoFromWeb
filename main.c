@@ -9,6 +9,7 @@
 #include "log.h"
 
 static bool is_exit = 0;
+#define IP_SUM (255)
 static void signal_handler(int sig)
 {
 	switch(sig)
@@ -38,20 +39,36 @@ static void daemonize(void) {
 	if (0 != chdir("/")) exit(0);
 }
 
-
+static void init_url_array(user_url_data_t* url_data_array, int sum)
+{
+	int i = 0;
+	for(i = 0; i < sum; i++)
+	{
+		int error_number = NO_ERROR;
+		user_url_data_t *p = url_data_array + i;
+		p->urloriginal = buffer_init_printf("http://admin:admin@172.16.0.%d/cgi-bin/web_cgi_main.cgi?status_get", i);
+		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
+		p->connect_status = CONNECT_STATUS_CLOSE;
+		p->method = buffer_init_string("GET");
+		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method));
+		p->sock = -1;
+		memset(&p->http_status, 0, sizeof(p->http_status));
+	}
+	return ;
+}
 int main(int argc, char **argv)
 {
-	cfg_stock_t *cfg_head = NULL, *cfg_p = NULL;
-	int i = 0, cfg_size = 0;
+	int i = 0;
 	user_url_data_t* url_data_array = NULL;
-	time_t cur_time = 0, last_time = 0, interval = (2 * 60);
-	fd_set rfds;
+	time_t cur_time = 0, last_time = 0, interval = 1;
+	fd_set rfds, wfds;
 	struct timeval timeout;
 	int retval = 0;
 	int nfds = 0;
 	int error_code = NO_ERROR;
 	const char *p = NULL;
 	int pid = 0;
+	bool is_everything_over = true;
 
 	UNUSED(error_code);
 	UNUSED(cur_time);
@@ -72,65 +89,52 @@ int main(int argc, char **argv)
 	}
 	set_signal_handler (SIGCHLD, signal_handler);
 	set_signal_handler (SIGINT, signal_handler);
-
-	cfg_head = cfg_parser("./getInfoFromWeb.conf");
-	if(cfg_head == NULL ||
-			(cfg_size = getCfgSize(cfg_head)) == 0)
-	{
-		log_error_write(__func__, __LINE__, "s", "configure file is empty");
-		return -1;
-	}
+	set_signal_handler (SIGPIPE, signal_handler);
 
 	log_error_open();
-	daemonize();
+	if(0)
+		daemonize();
 
-
-	/*init*/
-	url_data_array = alloca(cfg_size * sizeof(user_url_data_t));
+	url_data_array = alloca(IP_SUM * sizeof(user_url_data_t));
 	if(url_data_array == NULL)
 	{
 		log_error_write(__func__, __LINE__, "s", "lack of memory");
 		abort();
 	}
-	for(cfg_p = cfg_head, i = 0; i < cfg_size; i++, cfg_p = cfg_p->next)
-	{
-		int error_number = NO_ERROR;
-		user_url_data_t *p = url_data_array + i;
-		p->urloriginal = buffer_init_printf("http://d.10jqka.com.cn/v2/realhead/%s/last.js", cfg_p->stock_code);
-		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
-		p->connect_status = CONNECT_STATUS_CLOSE;
-		p->method = buffer_init_string("GET");
-		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method));
-		p->cfg_p = cfg_p;
-		p->sock = -1;
-		memset(&p->http_status, 0, sizeof(p->http_status));
-	}
+	/**init*/
+	init_url_array(url_data_array, IP_SUM);
 
+	/*progressing*/
 	log_error_write(__func__, __LINE__, "s", "Init Success");
 	while(!is_exit)
 	{
 		FD_ZERO(&rfds);
+		FD_ZERO(&wfds);
+		is_everything_over = true;
 		nfds = 0;
 		memset(&timeout, 0, sizeof(timeout));
 		timeout.tv_sec = interval;
 
-		for(i = 0; i < cfg_size; i++)
+		/*init link*/
+		for(i = 0; i < IP_SUM; i++)
 		{
 			if(url_data_array[i].connect_status == CONNECT_STATUS_NOTLOOP)
 			{
 				continue;
 			}
+			is_everything_over = false;
 			if(url_data_array[i].urlparse != NULL &&
 					url_data_array[i].connect_status == CONNECT_STATUS_CLOSE)
 			{
 				url_data_array[i].sock = connect_to_host (url_data_array[i].urlparse->host, url_data_array[i].urlparse->port);
 				if(url_data_array[i].sock < 0)
 				{
-					url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
-					log_error_write(__func__, __LINE__, "sbs", "Connect to ",url_data_array[i].urloriginal," failed");
+					url_data_array[i].connect_status = CONNECT_STATUS_NOTLOOP;
+					log_error_write(__func__, __LINE__, "ssds", "Connect to ",url_data_array[i].urlparse->host, url_data_array[i].urlparse->port ," failed");
 					continue;
+					//return -1;
 				}
-				url_data_array[i].connect_status = CONNECT_STATUS_CONNECTED;
+				url_data_array[i].connect_status = CONNECT_STATUS_CONNECTING;
 			}
 
 		    if(url_data_array[i].sock >= 0 &&
@@ -146,6 +150,12 @@ int main(int argc, char **argv)
 		    {
 		    	url_data_array[i].connect_status = CONNECT_STATUS_AUTHORIZATION_SENT;
 		    }
+		    else if(url_data_array[i].connect_status == CONNECT_STATUS_CONNECTING)
+		    {
+		    	FD_SET(url_data_array[i].sock, &wfds);
+		    	nfds = MAX(nfds, url_data_array[i].sock + 1);
+		    	continue;
+		    }
 		    else
 		    {
 		    	url_data_array[i].connect_status = CONNECT_STATUS_REQUEST_SENT;
@@ -153,12 +163,26 @@ int main(int argc, char **argv)
 			FD_SET(url_data_array[i].sock, &rfds);
 			nfds = MAX(nfds, url_data_array[i].sock + 1);
 		}
+
+		if(true == is_everything_over)
 		{
-			if(nfds <= 0)
+			break;
+		}
+		/*select progressing*/
+		{
+			if(nfds == 0)
 			{
-				break;
+				for(i = 0; i < IP_SUM; i++)
+				{
+					if(url_data_array[i].connect_status == CONNECT_STATUS_NOTLOOP)
+					{
+						continue;
+					}
+				}
+				log_error_write(__func__, __LINE__, "s", "no link to watch");
+				continue;
 			}
-			retval = select(nfds, &rfds, NULL, NULL, &timeout);
+			retval = select(nfds, &rfds, &wfds, NULL, &timeout);
 			if(retval == -1)
 			{
 				log_error_write(__func__, __LINE__, "s", "select error");
@@ -167,8 +191,9 @@ int main(int argc, char **argv)
 			else if(retval == 0)
 			{
 				log_error_write(__func__, __LINE__, "s", "select timeout");
+				continue;
 			}
-			for(i = 0; i < cfg_size && retval > 0; i++)
+			for(i = 0; i < IP_SUM && retval > 0; i++)
 			{
 				if(url_data_array[i].connect_status == CONNECT_STATUS_ERROR ||
 						url_data_array[i].connect_status == CONNECT_STATUS_CLOSE ||
@@ -176,15 +201,39 @@ int main(int argc, char **argv)
 				{
 					continue;
 				}
-				if(url_data_array[i].sock > 0 &&
+
+				if(FD_ISSET(url_data_array[i].sock, &wfds))
+				{
+					if(is_sock_connected(url_data_array[i].sock))
+					{
+						int flags;
+						/*
+						log_error_write(__func__, __LINE__, "s", "Link Succeed");
+						*/
+						flags = fcntl(url_data_array[i].sock, F_GETFL, 0);
+						fcntl(url_data_array[i].sock, F_SETFL, flags & ~O_NONBLOCK);
+						url_data_array[i].connect_status = CONNECT_STATUS_CONNECTED;
+					}
+					else
+					{/*
+						log_error_write(__func__, __LINE__, "s", "Link failed");
+						*/
+						url_data_array[i].connect_status = CONNECT_STATUS_NOTLOOP;
+					}
+					continue;
+				}
+				else if(url_data_array[i].sock > 0 &&
 						FD_ISSET(url_data_array[i].sock, &rfds))
 				{
 					int sock = url_data_array[i].sock;
-					char *head = read_http_response_head (sock);
+					char *head = NULL;
 					struct http_stat *http_status = &url_data_array[i].http_status;
 					retval--;
-					if(head == NULL || *head == '\0')
+					head = read_http_response_head (sock);
+					if(head == NULL || head[0] == '\0')
 					{
+						fprintf(stderr, "%s %d respond head is empty\n", __func__, __LINE__);
+						log_error_write(__func__, __LINE__, "s", "respond head is empty");
 						url_data_array[i].connect_status = CONNECT_STATUS_ERROR;
 						continue;
 					}
@@ -195,8 +244,10 @@ int main(int argc, char **argv)
 							url_data_array[i].connect_status != CONNECT_STATUS_AUTHORIZATION_SENT &&
 							url_data_array[i].urlparse->user && url_data_array[i].urlparse->passwd)
 					{
-							if(known_authentication_scheme_p(http_status->WWWAuthenticate))
+							if(http_status->WWWAuthenticate != NULL &&
+									known_authentication_scheme_p(http_status->WWWAuthenticate))
 							{
+								log_error_write(__func__, __LINE__, "s", "Unauthorized, will send authorization page");
 								url_data_array[i].connect_status = CONNECT_STATUS_UNAUTHORIZED;
 								request_head_add_authorization_head(&url_data_array[i]);
 								continue;
@@ -208,61 +259,53 @@ int main(int argc, char **argv)
 						request_remove_header (url_data_array[i].req, "Authorization");
 					}
 
+					log_error_write(__func__, __LINE__, "d", http_status->stat_code);
 					/*end of communication*/
+					if((http_status->stat_code == HTTP_STATUS_OK || http_status->stat_code == HTTP_STATUS_NOT_FOUND) &&
+							http_status->content_data != NULL&&
+							strcasecmp(http_status->server, "embed httpd") == 0)
 					{
-					cfg_p = url_data_array[i].cfg_p;
-					if(http_status->stat_code == HTTP_STATUS_OK &&
+						fprintf(stderr, "%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal), "Look like Yealink Device");
+						log_error_write(__func__, __LINE__, "s", "Look like Yealink Device");
+					}
+					else if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data != NULL)
 					{
 						JsonNode *json = NULL;
-						char *items = NULL, *end = NULL;
-						if((items = strstr(http_status->content_data, "\"items\"")) != NULL &&
-								(end = strchr(items, '}')) != NULL)
+						JsonNode *node = NULL;
+					//	fprintf(stderr, "%s\n", http_status->content_data);
+						json = json_decode(http_status->content_data);
+						if(json == NULL)
 						{
-							char *p = NULL;
-							items+=sizeof("\"items\":") - 1;
-							end[1] = '\0';
-							json = json_decode(items);
-							if(json == NULL)
+							log_error_write(__func__, __LINE__, "s", "json == NULL");
+						}
+						else
+						{
+							node = json_find_member(json, "product_name");
+							if(node != NULL)
 							{
-								log_error_write(__func__, __LINE__, "s", "json == NULL\n");
+								if((p = json_stringify(node, NULL)) != NULL)
+								{
+									fprintf(stderr, "%s\t%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal) + sizeof("http://admin:admin@") - 1,
+											"Atcom Device", p);
+									log_error_write(__func__, __LINE__, "sss",
+											buffer_get_c_string(url_data_array[i].urloriginal),
+											"Atcom Device", p);
+								}
 							}
 							else
 							{
-								JsonNode *node = json_find_member(json, "10");
-								if(node != NULL)
-								{
-									if((p = json_stringify(node, NULL)) != NULL)
-									{
-										xmemcpy(cfg_p->stock_cur_price, sizeof(cfg_p->stock_cur_price) - 1, p, strlen(p) + 1);
-										cfg_p->stock_cur_price[sizeof(cfg_p->stock_cur_price) - 1] = '\0';
-										xfree(p);
-									}
-								}
-								node = json_find_member(json, "199112");
-								if(node != NULL)
-								{
-									if((p = json_stringify(node, NULL)) != NULL)
-									{
-										xmemcpy(cfg_p->stock_inc_rate, sizeof(cfg_p->stock_inc_rate) - 1, p, strlen(p) + 1);
-										cfg_p->stock_inc_rate[sizeof(cfg_p->stock_inc_rate) - 1] = '\0';
-										xfree(p);
-									}
-								}
-								if(cfg_p->stock_cur_price[0] != '\0')
-								{
-									log_error_write(__func__, __LINE__, "ssss", cfg_p->stock_name, cfg_p->stock_cur_price, "%", cfg_p->stock_inc_rate);
-								}
-								json_delete(json);
+								log_error_write(__func__, __LINE__, "s", "node == NULL");
 							}
 						}
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data == NULL)
 					{
-						log_error_write(__func__, __LINE__, "s", "Data is Empty");
+						log_error_write(__func__, __LINE__, "s", "Data is NULL");
 					}
-					if(http_status->connection_stat && 0 == strncasecmp(http_status->connection_stat, "Keep-Alive", sizeof("Keep-Alive") - 1) &&
+					if(http_status->connection_stat &&
+							0 == strncasecmp(http_status->connection_stat, "Keep-Alive", sizeof("Keep-Alive") - 1) &&
 							sock >= 0)
 					{
 						http_stat_data_free(&url_data_array[i].http_status);
@@ -273,14 +316,16 @@ int main(int argc, char **argv)
 					}
 					else
 					{
-						url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
+						log_error_write(__func__, __LINE__, "sd", "Will Over", url_data_array[i].connect_status);
+						url_data_array[i].connect_status = CONNECT_STATUS_NOTLOOP;
 					}
-				}
 				}
 
 			}
 		}/*end select*/
-		for(i = 0; i < cfg_size; i++)
+		log_error_write(__func__, __LINE__, "s", "select over");
+		/*clean*/
+		for(i = 0; i < IP_SUM; i++)
 		{
 			if(url_data_array[i].connect_status == CONNECT_STATUS_ERROR ||
 				url_data_array[i].connect_status == CONNECT_STATUS_CLOSE ||
@@ -291,16 +336,15 @@ int main(int argc, char **argv)
 		/*
 			request_remove_header (url_data_array[i].req, "Authorization");
 			*/
-			CLOSE_FD(url_data_array[i].sock);
-			if(url_data_array[i].connect_status != CONNECT_STATUS_NOTLOOP)
-			{
-				url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
-			}
+			shutdown(url_data_array[i].sock, SHUT_RD);
+			url_data_array[i].connect_status = CONNECT_STATUS_NOTLOOP;
 			}
 		}
-		sleep(1);
+		log_error_write(__func__, __LINE__, "s", "clean over");
+		//sleep(1);
 	}
-	for(i = 0; i < cfg_size; i++)
+	log_error_write(__func__, __LINE__, "s", "exec over");
+	for(i = 0; i < IP_SUM; i++)
 	{
 		if(url_data_array[i].urloriginal != NULL)
 		{
@@ -317,7 +361,7 @@ int main(int argc, char **argv)
 			url_free(url_data_array[i].urlparse);
 			url_data_array[i].urlparse = NULL;
 		}
-		url_data_array[i].connect_status = CONNECT_STATUS_CLOSE;
+		url_data_array[i].connect_status = CONNECT_STATUS_NOTLOOP;
 		if(url_data_array[i].req != NULL)
 		{
 			request_free(url_data_array[i].req);
@@ -329,9 +373,7 @@ int main(int argc, char **argv)
 		}
 		http_stat_data_free(&url_data_array[i].http_status);
 		memset(&url_data_array[i].http_status, 0, sizeof(url_data_array[i].http_status));
-		url_data_array[i].cfg_p = NULL;
 	}
-	cfg_free(cfg_head);
 	log_error_write(__func__, __LINE__, "s", "Everything is done, Goodbye");
 	log_error_close();
 	return 0;
