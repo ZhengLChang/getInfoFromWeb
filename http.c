@@ -1712,3 +1712,110 @@ char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long ma
         }
     }
 }
+
+char* network_get_host_ip(char *buf, int buf_size) {
+	struct ifaddrs *ifaddr, *ifa;
+
+	if(getifaddrs(&ifaddr) == -1)
+	{
+		fprintf(stderr, "getifaddrs error: %s\n", strerror(errno));
+		return NULL;
+	}
+	for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+	{
+		if(ifa->ifa_addr == NULL)
+			continue;
+		if(strncmp(ifa->ifa_name, "eth", sizeof("eth") - 1) == 0 && 
+				ifa->ifa_addr->sa_family == AF_INET)
+		{
+			if(NULL == inet_ntop(ifa->ifa_addr->sa_family, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr, buf, buf_size))
+			{
+				continue;
+			}
+		}
+	}
+	freeifaddrs(ifaddr);
+	return buf;
+}
+
+char* network_get_host_ip_with_suffix(char *buf, int buf_size) {
+	struct ifaddrs *ifaddr, *ifa;
+	char str[1024], netmask_str[1024];
+	int netmask[4], i = 0, j = 0;
+
+	if(getifaddrs(&ifaddr) == -1)
+	{
+		fprintf(stderr, "getifaddrs error: %s\n", strerror(errno));
+		return NULL;
+	}
+	for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+	{
+		if(ifa->ifa_addr == NULL)
+			continue;
+		if(strncmp(ifa->ifa_name, "eth", sizeof("eth") - 1) == 0 && 
+				ifa->ifa_addr->sa_family == AF_INET)
+		{
+			if(NULL == inet_ntop(ifa->ifa_addr->sa_family, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr, str, sizeof(str)))
+			{
+				continue;
+			}
+			if(NULL == inet_ntop(ifa->ifa_addr->sa_family, &((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr, netmask_str, sizeof(netmask_str)))
+			{
+				continue;
+			}
+		}
+	}
+	sscanf(netmask_str, "%d.%d.%d.%d", &netmask[0], &netmask[1], &netmask[2], &netmask[3]);
+	for(i = 0; netmask[i] == 255; i++)
+	{
+	}
+	for(j = 0; j < 8; j++)
+	{
+		if((netmask[i] >> j) % 2 != 0)
+		{
+			break;
+		}
+	}
+	snprintf(buf, buf_size, "%s/%d", str, i * 8 + j);
+	freeifaddrs(ifaddr);
+	return buf;
+}
+
+char* network_get_host_subnetwork(char *buf, int buf_size) {
+	struct ifaddrs *ifaddr, *ifa;
+	char str[1024], netmask_str[1024];
+	int netmask[4], ip_addr[4], i = 0;
+
+	if(getifaddrs(&ifaddr) == -1)
+	{
+		fprintf(stderr, "getifaddrs error: %s\n", strerror(errno));
+		return NULL;
+	}
+	for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+	{
+		if(ifa->ifa_addr == NULL)
+			continue;
+		if(strncmp(ifa->ifa_name, "eth", sizeof("eth") - 1) == 0 && 
+				ifa->ifa_addr->sa_family == AF_INET)
+		{
+			if(NULL == inet_ntop(ifa->ifa_addr->sa_family, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr, str, sizeof(str)))
+			{
+				continue;
+			}
+			if(NULL == inet_ntop(ifa->ifa_addr->sa_family, &((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr, netmask_str, sizeof(netmask_str)))
+			{
+				continue;
+			}
+		}
+	}
+	sscanf(netmask_str, "%d.%d.%d.%d", &netmask[0], &netmask[1], &netmask[2], &netmask[3]);
+	sscanf(str, "%d.%d.%d.%d", &ip_addr[0], &ip_addr[1], &ip_addr[2], &ip_addr[3]);
+	for(i = 0; i < 4; i++)
+	{
+		ip_addr[i] = ip_addr[i] & netmask[i];
+	}
+	snprintf(buf, buf_size, "%d.%d.%d.%d", ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+	freeifaddrs(ifaddr);
+	return buf;
+}
+
