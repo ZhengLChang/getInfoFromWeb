@@ -1713,6 +1713,37 @@ char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long ma
     }
 }
 
+char *network_get_host_ip_by_interface(const char *interface, char *buf, int buf_size)
+{
+	struct ifaddrs *ifaddr, *ifa;
+
+	if(interface == NULL || buf == NULL || buf_size == 0)
+	{
+		return NULL;
+	}
+	if(getifaddrs(&ifaddr) == -1)
+	{
+		fprintf(stderr, "getifaddrs error: %s\n", strerror(errno));
+		return NULL;
+	}
+	for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+	{
+		if(ifa->ifa_addr == NULL)
+			continue;
+		if(strncmp(ifa->ifa_name, interface, strlen(interface)) == 0 &&
+				ifa->ifa_addr->sa_family == AF_INET)
+		{
+			if(NULL == inet_ntop(ifa->ifa_addr->sa_family, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr, buf, buf_size))	
+			{
+				continue;
+			}
+			freeifaddrs(ifaddr);
+			return buf;
+		}
+	}
+	return NULL;
+}
+
 char* network_get_host_ip(char *buf, int buf_size) {
 	struct ifaddrs *ifaddr, *ifa;
 
@@ -1732,10 +1763,11 @@ char* network_get_host_ip(char *buf, int buf_size) {
 			{
 				continue;
 			}
+			freeifaddrs(ifaddr);
+			return buf;
 		}
 	}
-	freeifaddrs(ifaddr);
-	return buf;
+	return NULL;
 }
 
 char* network_get_host_ip_with_suffix(char *buf, int buf_size) {

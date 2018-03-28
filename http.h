@@ -244,4 +244,5 @@ char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long ma
 char* network_get_host_ip(char *buf, int buf_size);
 char* network_get_host_ip_with_suffix(char *buf, int buf_size);
 char* network_get_host_subnetwork(char *buf, int buf_size);
+char *network_get_host_ip_by_interface(const char *interface, char *buf, int buf_size);
 #endif
