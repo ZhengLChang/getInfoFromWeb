@@ -159,7 +159,8 @@ static void log_buffer_append_printf(buffer *out, const char *fmt, va_list ap) {
 }
 
 static void log_write(buffer *b) {
-	syslog(LOG_ERR, "%s", b->ptr);
+//	syslog(LOG_ERR, "%s", b->ptr);
+	fprintf(stderr, "%s\n", b->ptr);
 }
 
 int log_error_write(const char *filename, unsigned int line, const char *fmt, ...) {

@@ -24,6 +24,7 @@ static void signal_handler(int sig)
 	return;
 }
 static void daemonize(void) {
+	return ;
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
@@ -96,7 +97,8 @@ int main(int argc, char **argv)
 	{
 		int error_number = NO_ERROR;
 		user_url_data_t *p = url_data_array + i;
-		p->urloriginal = buffer_init_printf("http://d.10jqka.com.cn/v2/realhead/%s/last.js", cfg_p->stock_code);
+		p->urloriginal = buffer_init_printf("http://hq.sinajs.cn/?_=0.7722990357364641&list=%s", cfg_p->stock_code);
+//		p->urloriginal = buffer_init_printf("http://hq.sinajs.cn/?list=%s", cfg_p->stock_code);
 		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
 		p->connect_status = CONNECT_STATUS_CLOSE;
 		p->method = buffer_init_string("GET");
@@ -109,6 +111,7 @@ int main(int argc, char **argv)
 	log_error_write(__func__, __LINE__, "s", "Init Success");
 	while(!is_exit)
 	{
+		//is_exit = 1;
 		FD_ZERO(&rfds);
 		nfds = 0;
 		memset(&timeout, 0, sizeof(timeout));
@@ -214,6 +217,8 @@ int main(int argc, char **argv)
 					if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data != NULL)
 					{
+						log_error_write(__func__, __LINE__, "s", http_status->content_data);
+						/*
 						JsonNode *json = NULL;
 						char *items = NULL, *end = NULL;
 						if((items = strstr(http_status->content_data, "\"items\"")) != NULL &&
@@ -256,6 +261,7 @@ int main(int argc, char **argv)
 								json_delete(json);
 							}
 						}
+						*/
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data == NULL)
