@@ -97,8 +97,8 @@ int main(int argc, char **argv)
 	{
 		int error_number = NO_ERROR;
 		user_url_data_t *p = url_data_array + i;
-		p->urloriginal = buffer_init_printf("http://hq.sinajs.cn/?_=0.7722990357364641&list=%s", cfg_p->stock_code);
-//		p->urloriginal = buffer_init_printf("http://hq.sinajs.cn/?list=%s", cfg_p->stock_code);
+//		p->urloriginal = buffer_init_printf("http://hq.sinajs.cn/?_=0.7722990357364641&list=%s", cfg_p->stock_code);
+		p->urloriginal = buffer_init_printf("http://hq.sinajs.cn/?list=%s", cfg_p->stock_code);
 		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
 		p->connect_status = CONNECT_STATUS_CLOSE;
 		p->method = buffer_init_string("GET");
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 	log_error_write(__func__, __LINE__, "s", "Init Success");
 	while(!is_exit)
 	{
-		//is_exit = 1;
+//		is_exit = 1;
 		FD_ZERO(&rfds);
 		nfds = 0;
 		memset(&timeout, 0, sizeof(timeout));
@@ -217,7 +217,45 @@ int main(int argc, char **argv)
 					if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data != NULL)
 					{
-						log_error_write(__func__, __LINE__, "s", http_status->content_data);
+						char *splitedStr = strdup(http_status->content_data);
+						char *saveptr = NULL, *p = NULL, *storeStr = NULL;
+						char *nameStr = NULL, *curPriStr = NULL, *maxPriStr = NULL, *minPriStr = NULL;
+				//		log_error_write(__func__, __LINE__, "s", http_status->content_data);
+						p = strrchr(splitedStr, (int)'\"');
+						if(p != NULL)
+						{
+							*p = '\0';
+						}
+						p = strchr(splitedStr, (int)'\"');
+						if(NULL != p &&
+							NULL != splitedStr)
+						{
+							int i = 0;
+							nameStr = p;
+							for(i = 0; ; p = NULL, i++)
+							{
+								storeStr = strtok_r(p, ", ", &saveptr);
+								if(NULL == storeStr)
+								{
+									break;
+								}
+								switch(i)
+								{
+									case 3:
+										curPriStr = storeStr;
+										break;
+									case 5:
+										minPriStr = storeStr;
+										break;
+									case 4:
+										maxPriStr = storeStr;
+										break;
+								}
+							}
+							log_error_write(__func__, __LINE__, "ssssssss", "name", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr);
+							xfree(splitedStr);
+						}
+								
 						/*
 						JsonNode *json = NULL;
 						char *items = NULL, *end = NULL;
