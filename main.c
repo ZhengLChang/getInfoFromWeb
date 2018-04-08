@@ -24,7 +24,6 @@ static void signal_handler(int sig)
 	return;
 }
 static void daemonize(void) {
-	return ;
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
@@ -219,7 +218,8 @@ int main(int argc, char **argv)
 					{
 						char *splitedStr = strdup(http_status->content_data);
 						char *saveptr = NULL, *p = NULL, *storeStr = NULL;
-						char *nameStr = NULL, *curPriStr = NULL, *maxPriStr = NULL, *minPriStr = NULL;
+						char *nameStr = NULL, *curPriStr = NULL, *maxPriStr = NULL, *minPriStr = NULL, *todayStartPriStr = NULL, *yesterdayEndPriStr = NULL;
+						char rateStr[64] = "";
 				//		log_error_write(__func__, __LINE__, "s", http_status->content_data);
 						p = strrchr(splitedStr, (int)'\"');
 						if(p != NULL)
@@ -241,18 +241,25 @@ int main(int argc, char **argv)
 								}
 								switch(i)
 								{
+									case 1:
+										todayStartPriStr = storeStr;
+										break;
+									case 2:
+										yesterdayEndPriStr = storeStr;
+										break;
 									case 3:
 										curPriStr = storeStr;
-										break;
-									case 5:
-										minPriStr = storeStr;
 										break;
 									case 4:
 										maxPriStr = storeStr;
 										break;
+									case 5:
+										minPriStr = storeStr;
+										break;
 								}
 							}
-							log_error_write(__func__, __LINE__, "ssssssss", "name", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr);
+							snprintf(rateStr, sizeof(rateStr), "%.2f", (atof(curPriStr) - atof(yesterdayEndPriStr)) / atof(yesterdayEndPriStr) * 100);
+							log_error_write(__func__, __LINE__, "ssssssssss", "name", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr, "rate: ", rateStr);
 							xfree(splitedStr);
 						}
 								
