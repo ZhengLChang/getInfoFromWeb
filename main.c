@@ -220,18 +220,19 @@ int main(int argc, char **argv)
 						char *saveptr = NULL, *p = NULL, *storeStr = NULL;
 						char *nameStr = NULL, *curPriStr = NULL, *maxPriStr = NULL, *minPriStr = NULL, *todayStartPriStr = NULL, *yesterdayEndPriStr = NULL;
 						char rateStr[64] = "";
+						int nameLen = 0;
 				//		log_error_write(__func__, __LINE__, "s", http_status->content_data);
 						p = strrchr(splitedStr, (int)'\"');
 						if(p != NULL)
 						{
 							*p = '\0';
 						}
-						p = strchr(splitedStr, (int)'\"');
+						p = strchr(splitedStr, (int)'\"') + 1;
 						if(NULL != p &&
 							NULL != splitedStr)
 						{
 							int i = 0;
-							nameStr = p;
+							
 							for(i = 0; ; p = NULL, i++)
 							{
 								storeStr = strtok_r(p, ", ", &saveptr);
@@ -241,6 +242,11 @@ int main(int argc, char **argv)
 								}
 								switch(i)
 								{
+									case 0:
+										nameLen = sizeof(char) * strlen(storeStr);
+										nameStr = alloca(3 * nameLen);
+							charset_convert_GB2312_TO_UTF8(storeStr, strlen(storeStr), nameStr, 3 * nameLen);
+										break;
 									case 1:
 										todayStartPriStr = storeStr;
 										break;
@@ -259,7 +265,7 @@ int main(int argc, char **argv)
 								}
 							}
 							snprintf(rateStr, sizeof(rateStr), "%.2f", (atof(curPriStr) - atof(yesterdayEndPriStr)) / atof(yesterdayEndPriStr) * 100);
-							log_error_write(__func__, __LINE__, "ssssssssss", "name", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr, "rate: ", rateStr);
+							log_error_write(__func__, __LINE__, "sSssssssss", "name: ", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr, "rate: ", rateStr);
 							xfree(splitedStr);
 						}
 								

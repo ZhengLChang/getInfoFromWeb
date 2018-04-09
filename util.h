@@ -169,5 +169,6 @@ enum {
 extern struct error_data error_array[];
 int charset_convert_UTF8_TO_GB2312(char *in_buf, size_t in_left, char *out_buf, size_t out_left);
 int charset_convert_GB2312_TO_UTF8(char *in_buf, size_t in_left, char *out_buf, size_t out_left);
+void reversion_transfer_code(const char *in, size_t inLen, char *out, size_t outLen);
 
 #endif

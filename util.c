@@ -507,7 +507,7 @@ static void getProcessName(const int pid, char *pid_name, int pid_size)
 	fd = open(name, O_RDONLY);
 	if(fd < 0)
 	{
-		log_error_write(__func__, __LINE__, "ss", "open error: ", strerror(errno));
+	//	log_error_write(__func__, __LINE__, "ss", "open error: ", strerror(errno));
 		goto ERR;
 	}
 	if(fstat(fd, &file_stat) < 0)
@@ -560,14 +560,14 @@ static int charset_convert(const char *from_charset, const char *to_charset,
 	icd = iconv_open(to_charset, from_charset);
 	if ((iconv_t)-1 == icd)
 	{
-		fprintf(stderr, "%s %d, iconv_open %s\n", __func__, __LINE__, strerror(errno));
+		log_error_write(__func__, __LINE__, "ss", "iconv_open error: ", strerror(errno));
 		return -1;
 	}
 
 	sRet = iconv(icd, &pIn, &in_left, &pOut, &out_left);
 	if ((size_t)-1 == sRet)
 	{
-		fprintf(stderr, "%s %d, iconv_open %s\n", __func__, __LINE__, strerror(errno));
+		log_error_write(__func__, __LINE__, "ss", "iconv error: ", strerror(errno));
 		iconv_close(icd);
     		return -1;
        	}
@@ -586,3 +586,21 @@ int charset_convert_GB2312_TO_UTF8(char *in_buf, size_t in_left, char *out_buf, 
 	return charset_convert("GB2312", "UTF-8", in_buf, in_left, out_buf, out_left);
 }
  
+void reversion_transfer_code(const char *in, size_t inLen, char *out, size_t outLen)
+{
+	int i = 0, j = 0, m = 0;
+	assert(in != NULL && inLen > 0 && out != NULL && outLen > 0);
+	memset(out, 0, outLen);
+	for(i = 0, j = 0; i < inLen && j < outLen - 1; i+=4, j++)
+	{
+		int n; 
+		if((n = sscanf(in + i, "\\x%x", &m)) != 1)
+		{
+			break;
+		}
+		out[j] = (unsigned char)(m & 0x00ff);
+	}
+	return;
+}
+
+
