@@ -24,6 +24,7 @@ static void signal_handler(int sig)
 	return;
 }
 static void daemonize(void) {
+	return ;
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
@@ -264,8 +265,11 @@ int main(int argc, char **argv)
 										break;
 								}
 							}
+							if(nameStr && todayStartPriStr && yesterdayEndPriStr && curPriStr && maxPriStr && minPriStr)
+							{
 							snprintf(rateStr, sizeof(rateStr), "%.2f", (atof(curPriStr) - atof(yesterdayEndPriStr)) / atof(yesterdayEndPriStr) * 100);
 							log_error_write(__func__, __LINE__, "sSssssssss", "name: ", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr, "rate: ", rateStr);
+							}
 							xfree(splitedStr);
 						}
 								
