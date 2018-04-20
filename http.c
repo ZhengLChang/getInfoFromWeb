@@ -483,6 +483,11 @@ void request_set_method (struct request *req, const char *meth, char *arg)
   req->arg = arg;
 }
 
+void request_set_data(struct request *req, const char *data, const int dataLen)
+{
+	req->data = data;
+	req->dataLen = dataLen;
+}
 /* Return the method string passed with the last call to
    request_set_method.  */
 
@@ -784,6 +789,11 @@ int request_send (const struct request *req, int fd)
 	}
 	/* "\r\n\0" */
 	size += 3;
+
+
+	/*data*/
+	size += req->dataLen;
+
 	p = request_string = alloca_array (char, size);
 	/* Generate the request. */
 
@@ -798,7 +808,12 @@ int request_send (const struct request *req, int fd)
 		APPEND (p, hdr->value);
 		*p++ = '\r', *p++ = '\n';
 	}
-	*p++ = '\r', *p++ = '\n', *p++ = '\0';
+	*p++ = '\r', *p++ = '\n';
+
+	memcpy (p, req->data, req->dataLen);
+	p += req->dataLen;
+
+	*p++ = '\0';
 	assert (p - request_string == size);
 	write_error = fd_write (fd, request_string, size - 1);
 	return write_error;
@@ -1277,7 +1292,7 @@ void add_authentication_head_to_request(struct url *u, struct request *req, cons
 	return;
 }
 
-struct request *ini_request_head_without_auth(struct url *u, const char *method)
+struct request *ini_request_head_without_auth(struct url *u, const char *method, const char *data, const int dataLen)
 {
 	struct request *req = request_new ();
 	char *meth_arg = NULL;
@@ -1315,15 +1330,26 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method)
     }
 
     request_set_header (req, "Connection", "Keep-Alive", rel_none);
-    request_set_header (req, "Content-Encoding", "gzip", rel_none);
+    request_set_header (req, "Content-Encoding", "application/x-www-form-urlencoded; charset=UTF-8", rel_none);
    // request_set_header (req, "Cookie", "v=AVdubXP2waqui0Um-hR6VDAO4MCknCuVBXCvcqmEcyaN2Hm0sWy7ThVAP-W5", rel_none);
    // request_set_header (req, "If-Modified-Since", "Mon, 13 Nov 2017 14:51:01 GMT", rel_none);
-    request_set_header (req, "Referer", "http://stockpage.10jqka.com.cn/realHead_v2.html", rel_none);
-    request_set_header (req, "Cookie", "spversion=20130314; Hm_lvt_78c58f01938e4d85eaf619eae71b4ed1=1510241482; Hm_lpvt_78c58f01938e4d85eaf619eae71b4ed1=1510584498; historystock=601989%7C*%7C000538%7C*%7C002594; v=AXlAAyEMB2ycAdv1usl8UsLUju5Whm04V3qRzJuu9aAfIpca49Z9COfKoZ4r", rel_none);
+   // request_set_header (req, "Cookie", "spversion=20130314; Hm_lvt_78c58f01938e4d85eaf619eae71b4ed1=1510241482; Hm_lpvt_78c58f01938e4d85eaf619eae71b4ed1=1510584498; historystock=601989%7C*%7C000538%7C*%7C002594; v=AXlAAyEMB2ycAdv1usl8UsLUju5Whm04V3qRzJuu9aAfIpca49Z9COfKoZ4r", rel_none);
+    request_set_header (req, "Accept", "text/plain, */*; q=0.01", rel_none);
+    request_set_header (req, "Accept-Encoding", "gzip, deflate", rel_none);
+    request_set_header (req, "Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8", rel_none);
+    request_set_header (req, "Content-Type", "application/x-www-form-urlencoded; charset=UTF-8", rel_none);
+
 #if 0
     request_set_header (req, "", "", rel_none);
-    request_set_header (req, "", "", rel_none);
 #endif
+    if(data != NULL && dataLen != 0)
+    {
+    	char *str = xmalloc(64);
+		request_set_data(req, data, dataLen);
+		snprintf(str, sizeof(str), "%d", dataLen);
+		request_set_header (req, "X-Requested-With", "XMLHttpRequest", rel_none);
+		request_set_header (req, "Content-Length", str, rel_value);
+    }
     return req;
 }
 

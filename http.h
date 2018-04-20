@@ -124,6 +124,9 @@ struct request {
     enum rp release_policy;
   } *headers;
   int hcount, hcapacity;
+
+  const char *data;
+  int dataLen;
 };
 
 struct response {
@@ -195,6 +198,7 @@ int full_path_length (const struct url *url);
 void full_path_write (const struct url *url, char *where);
 char *url_full_path (const struct url *url);
 void request_set_method (struct request *req, const char *meth, char *arg);
+void request_set_data(struct request *req, const char *data, const int dataLen);
 const char *request_method (const struct request *req);
 void release_header (struct request_header *hdr);
 void request_set_header (struct request *req, char *name, char *value, enum rp release_policy);
@@ -228,7 +232,7 @@ char *create_authorization_line (const char *au, const char *user,
                            const char *passwd, const char *method,
                            const char *path);
 void add_authentication_head_to_request(struct url *u, struct request *req, const char *www_authenticate);
-struct request *ini_request_head_without_auth(struct url *u, const char *method);
+struct request *ini_request_head_without_auth(struct url *u, const char *method, const char *data, const int dataLen);
 bool request_head_add_authorization_head(user_url_data_t *url_data);
 char *basic_authentication_encode (const char *user, const char *passwd);
 int resp_header_locate (const struct response *resp, const char *name, int start,

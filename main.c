@@ -10,6 +10,7 @@
 
 static bool is_exit = 0;
 #define IP_SUM (255)
+char ContentData[] = "interDigitTime=4&autoAnswer=1&autoAnswerDelay=1&ignoreMissedCall=1&callWaiting=1&hotline=&hotlineTimeout=2&keyAsSend=1&dialNowTimeout=1&busyToneTimer=0&returnCodeWhenRefuse=486&returnCodeWhenDnd=480&rfc2543Hold=0&useOutboundProxyInDialog=1&loginTimeout=5&hidedtmf=0&multicastCodec=PCMU&watchdog=0&accept_sip_trust_server_only=0&recordUserId=&ext_function=0&hold_on_conference=0&callWaitingTone=1&headset=8&handset=8&handfree=8&ringer=0&headsetSend=2&handsetSend=2&handfreeSend=2&ringerDeviceForHeadset=1&blindTransferOnHook=1&attendedTransferOnHook=1&transferOnConHangUp=0&transferModeViaDsskey=2&directCallPickup=0&directCallPickupCode=&groupCallPickup=0&groupCallPickupCode=&user_set_phone_features";
 static void signal_handler(int sig)
 {
 	switch(sig)
@@ -46,11 +47,11 @@ static void init_url_array(user_url_data_t* url_data_array, int sum)
 	{
 		int error_number = NO_ERROR;
 		user_url_data_t *p = url_data_array + i;
-		p->urloriginal = buffer_init_printf("http://admin:admin@172.16.0.%d/cgi-bin/web_cgi_main.cgi?status_get", i);
+		p->urloriginal = buffer_init_printf("http://admin:admin@172.16.0.%d/cgi-bin/web_cgi_main.cgi?user_set_phone_features", i);
 		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
 		p->connect_status = CONNECT_STATUS_CLOSE;
-		p->method = buffer_init_string("GET");
-		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method));
+		p->method = buffer_init_string("POST");
+		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method), ContentData, strlen(ContentData));
 		p->sock = -1;
 		memset(&p->http_status, 0, sizeof(p->http_status));
 	}
