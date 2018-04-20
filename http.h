@@ -21,6 +21,8 @@
 #include <stdbool.h>
 #include "base64.h"
 #include "util.h"
+#include <netdb.h>
+#include <ifaddrs.h>
 #include "buffer.h"
 #include "httpstatus.h"
 #include "config.h"
@@ -240,4 +242,8 @@ int sock_read (int fd, char *buf, int bufsize);
 typedef const char *(*hunk_terminator_t) (const char *, const char *, int);
 char *fd_read_hunk (int fd, hunk_terminator_t terminator, long sizehint, long maxsize);
 bool is_sock_connected(int sock);
+char* network_get_host_ip(char *buf, int buf_size);
+char* network_get_host_ip_with_suffix(char *buf, int buf_size);
+char* network_get_host_subnetwork(char *buf, int buf_size);
+char *network_get_host_ip_by_interface(const char *interface, char *buf, int buf_size);
 #endif

@@ -127,7 +127,8 @@ static void log_buffer_append_printf(buffer *out, const char *fmt, va_list ap) {
 			break;
 		case 'S':           /* string */
 			s = va_arg(ap, char *);
-			buffer_append_string_c_escaped(out, s, (NULL != s) ? strlen(s) : 0);
+			buffer_append_string(out, s);
+			buffer_append_string_len(out, CONST_STR_LEN(" "));
 			break;
 		case 'B':           /* buffer */
 			b = va_arg(ap, buffer *);
@@ -160,6 +161,7 @@ static void log_buffer_append_printf(buffer *out, const char *fmt, va_list ap) {
 
 static void log_write(buffer *b) {
 	syslog(LOG_ERR, "%s", b->ptr);
+//	fprintf(stderr, "%s\n", b->ptr);
 }
 
 int log_error_write(const char *filename, unsigned int line, const char *fmt, ...) {

@@ -1,7 +1,7 @@
 #Makefile
 CC=gcc
 INCLUDE=
-LIB=-lpthread -lcrypto
+LIB=-lpthread -lcrypto -liconv
 CFLAGS=-g -Wall -Werror -D_REENTRANT -D_GNU_SOURCE ${LIB} ${INCLUDE}
 #CFLAGS=-g ${LIB} ${INCLUDE}
 MainFile=main.c
