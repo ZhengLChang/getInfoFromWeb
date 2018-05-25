@@ -24,7 +24,7 @@ static void signal_handler(int sig)
 	return;
 }
 static void daemonize(void) {
-	return ;
+	return;
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 		memset(&p->http_status, 0, sizeof(p->http_status));
 	}
 
-	log_error_write(__func__, __LINE__, "s", "Init Success");
+	log_error_write(__func__, __LINE__, "S", "Init Success");
 	while(!is_exit)
 	{
 //		is_exit = 1;
@@ -359,7 +359,7 @@ int main(int argc, char **argv)
 			}
 			}
 		}
-		sleep(1);
+		sleep(25);
 	}
 	for(i = 0; i < cfg_size; i++)
 	{
