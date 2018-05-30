@@ -250,6 +250,8 @@ int main(int argc, char **argv)
 								log_error_write(__func__, __LINE__, "s", "Unauthorized, will send authorization page");
 								url_data_array[i].connect_status = CONNECT_STATUS_UNAUTHORIZED;
 								request_head_add_authorization_head(&url_data_array[i]);
+								http_stat_data_free(&url_data_array[i].http_status);
+								memset(&url_data_array[i].http_status, 0, sizeof(url_data_array[i].http_status));
 								continue;
 							}
 					}
@@ -285,19 +287,26 @@ int main(int argc, char **argv)
 							node = json_find_member(json, "product_name");
 							if(node != NULL)
 							{
-								if((p = json_stringify(node, NULL)) != NULL)
+								char *str = NULL;
+								if((str = json_stringify(node, NULL)) != NULL)
 								{
 									fprintf(stderr, "%s\t%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal) + sizeof("http://admin:admin@") - 1,
-											"Atcom Device", p);
+											"Atcom Device", str);
 									log_error_write(__func__, __LINE__, "sss",
 											buffer_get_c_string(url_data_array[i].urloriginal),
-											"Atcom Device", p);
+											"Atcom Device", str);
+									xfree(str);
 								}
 							}
 							else
 							{
 								log_error_write(__func__, __LINE__, "s", "node == NULL");
 							}
+						}
+						if(json != NULL)
+						{
+							json_delete(json);
+							json = NULL;
 						}
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
