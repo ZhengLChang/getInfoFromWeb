@@ -610,15 +610,17 @@ char *digest_authentication_encode (const char *au, const char *user,
                               const char *passwd, const char *method,
                               const char *path)
 {
-  static char *realm, *opaque, *nonce;
+  static char *realm, *opaque, *nonce, *qop;
   static struct {
     const char *name;
     char **variable;
   } options[] = {
     { "realm", &realm },
     { "opaque", &opaque },
-    { "nonce", &nonce }
+    { "nonce", &nonce },
+    { "qop", &qop }
   };
+  char cnonce[16] = "";
   char *res;
   param_token name, value;
 
@@ -638,6 +640,10 @@ char *digest_authentication_encode (const char *au, const char *user,
             break;
           }
     }
+  if (qop && strcmp (qop, "auth"))
+  {
+	  xfree (qop); /* force freeing mem and continue */
+  }
   if (!realm || !nonce || !user || !passwd || !path || !method)
     {
       xfree_null (realm);
@@ -671,6 +677,35 @@ char *digest_authentication_encode (const char *au, const char *user,
     MD5_Final (hash, &ctx);
     dump_hash (a2buf, hash);
 
+    if (qop && !strcmp (qop, "auth"))
+    {
+	    /* RFC 2617 Digest Access Authentication */
+	    /* generate random hex string */
+	    if (!*cnonce)
+	    {
+	//	    snprintf (cnonce, sizeof (cnonce), "%08x",
+	//			    (unsigned) random_number (INT_MAX));
+			snprintf(cnonce, sizeof(cnonce), "66id03rm");
+	    }
+
+	    /* RESPONSE_DIGEST = H(A1BUF ":" nonce ":" noncecount ":" clientnonce ":" qop ": " A2BUF) */
+	    MD5_Init (&ctx);
+	    MD5_Update (&ctx, (unsigned char *)a1buf, MD5_HASHLEN * 2);
+	    MD5_Update (&ctx, (unsigned char *)":", 1);
+	    MD5_Update (&ctx, (unsigned char *)nonce, strlen (nonce));
+	    MD5_Update (&ctx, (unsigned char *)":", 1);
+	    MD5_Update (&ctx, (unsigned char *)"00000001", 8);/* TODO: keep track of server nonce values */
+	    MD5_Update (&ctx, (unsigned char *)":", 1);
+	    MD5_Update (&ctx, (unsigned char *)cnonce, strlen (cnonce));
+	    MD5_Update (&ctx, (unsigned char *)":", 1);
+	    MD5_Update (&ctx, (unsigned char *)qop, strlen (qop));
+	    MD5_Update (&ctx, (unsigned char *)":", 1);
+	    MD5_Update (&ctx, (unsigned char *)a2buf, MD5_HASHLEN * 2);
+
+	    MD5_Final (hash, &ctx);
+    }
+    else
+    {
     /* RESPONSE_DIGEST = H(A1BUF ":" nonce ":" A2BUF) */
     MD5_Init (&ctx);
     MD5_Update (&ctx, (unsigned char *)a1buf, MD5_HASHLEN * 2);
@@ -679,6 +714,7 @@ char *digest_authentication_encode (const char *au, const char *user,
     MD5_Update (&ctx, (unsigned char *)":", 1);
     MD5_Update (&ctx, (unsigned char *)a2buf, MD5_HASHLEN * 2);
     MD5_Final (hash, &ctx);
+    }
     dump_hash (response_digest, hash);
 
     res = xmalloc (strlen (user)
@@ -688,10 +724,23 @@ char *digest_authentication_encode (const char *au, const char *user,
                    + strlen (path)
                    + 2 * MD5_HASHLEN /*strlen (response_digest)*/
                    + (opaque ? strlen (opaque) : 0)
+		   + (qop ? 128: 0)
+		   + strlen (cnonce)
                    + 128);
+
+    if (qop && !strcmp (qop, "auth"))
+    {
+	    sprintf (res, "Digest "\
+			    "username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\""\
+			    ", qop=auth, nc=00000001, cnonce=\"%s\"",
+			    user, realm, nonce, path, response_digest, cnonce);
+    }
+    else
+    {
     sprintf (res, "Digest \
 username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
              user, realm, nonce, path, response_digest);
+    }
 //    fprintf(stderr, "%s\n", res);
     if (opaque)
       {
