@@ -263,6 +263,7 @@ int main(int argc, char **argv)
 					/*end of communication*/
 					if((http_status->stat_code == HTTP_STATUS_OK || http_status->stat_code == HTTP_STATUS_NOT_FOUND) &&
 							http_status->content_data != NULL&&
+							http_status->server != NULL &&
 							strcasecmp(http_status->server, "embed httpd") == 0)
 					{
 						fprintf(stderr, "%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal), "Look like Yealink Device");
