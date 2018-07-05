@@ -1324,8 +1324,10 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method,
                           rel_value);
     }
 
-#if 0
-    request_set_header (req, "", "", rel_none);
+#if 1
+    request_set_header (req, "Referer", "http://www.gpsspg.com/bs.htm", rel_none);
+    request_set_header (req, "User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0", rel_none);
+    request_set_header (req, "Cookie", "ARRAffinity=06ba504002526a73370a8d83e842a376c23f0bb01d7f8be5cd659f9c6ac8fd02", rel_none);
 #endif
     if(data != NULL && dataLen != 0)
     {

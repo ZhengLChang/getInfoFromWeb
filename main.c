@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 		p->urloriginal = buffer_init_string(argv[1]);
 		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
 		p->connect_status = CONNECT_STATUS_CLOSE;
-		p->method = buffer_init_string("POST");
+		p->method = buffer_init_string("GET");
 		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method), ContentData, strlen(ContentData));
 		p->sock = -1;
 		memset(&p->http_status, 0, sizeof(p->http_status));
@@ -266,6 +266,7 @@ int main(int argc, char **argv)
 							http_status->content_data != NULL)
 					{
 						log_error_write(__func__, __LINE__, "s", http_status->content_data);
+						fprintf(stderr, "%s", http_status->content_data);
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data == NULL)
