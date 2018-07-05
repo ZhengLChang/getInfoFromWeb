@@ -1,12 +1,12 @@
 #Makefile
 CC=gcc
 INCLUDE=
-LIB=-lpthread -lcrypto -liconv
-CFLAGS=-g -Wall -Werror -D_REENTRANT -D_GNU_SOURCE ${LIB} ${INCLUDE}
+LIB=-lpthread -lcrypto
+CFLAGS=-g   -D_REENTRANT -D_GNU_SOURCE ${LIB} ${INCLUDE}
 #CFLAGS=-g ${LIB} ${INCLUDE}
 MainFile=main.c
 #OutPut=$(patsubst %.c, %, ${MainFile})
-OutPut=getInfoFromWeb
+OutPut=getInfo
 src=base64.c json.c config.c util.c log.c buffer.c http.c
 target=$(patsubst %.c, %.o, ${MainFile})
 target+=$(patsubst %.c, %.o, ${src})

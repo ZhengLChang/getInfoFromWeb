@@ -9,7 +9,7 @@
 #include "log.h"
 
 static bool is_exit = 0;
-#define IP_SUM (255)
+#define IP_SUM (1)
 char ContentData[] = "interDigitTime=4&autoAnswer=1&autoAnswerDelay=1&ignoreMissedCall=1&callWaiting=1&hotline=&hotlineTimeout=2&keyAsSend=1&dialNowTimeout=1&busyToneTimer=0&returnCodeWhenRefuse=486&returnCodeWhenDnd=480&rfc2543Hold=0&useOutboundProxyInDialog=1&loginTimeout=5&hidedtmf=0&multicastCodec=PCMU&watchdog=0&accept_sip_trust_server_only=0&recordUserId=&ext_function=0&hold_on_conference=0&callWaitingTone=1&headset=8&handset=8&handfree=8&ringer=0&headsetSend=2&handsetSend=2&handfreeSend=2&ringerDeviceForHeadset=1&blindTransferOnHook=1&attendedTransferOnHook=1&transferOnConHangUp=0&transferModeViaDsskey=2&directCallPickup=0&directCallPickupCode=&groupCallPickup=0&groupCallPickupCode=&user_set_phone_features";
 static void signal_handler(int sig)
 {
@@ -40,23 +40,7 @@ static void daemonize(void) {
 	if (0 != chdir("/")) exit(0);
 }
 
-static void init_url_array(user_url_data_t* url_data_array, int sum)
-{
-	int i = 0;
-	for(i = 0; i < sum; i++)
-	{
-		int error_number = NO_ERROR;
-		user_url_data_t *p = url_data_array + i;
-		p->urloriginal = buffer_init_printf("http://admin:admin@172.16.0.%d/cgi-bin/web_cgi_main.cgi?user_set_phone_features", i);
-		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
-		p->connect_status = CONNECT_STATUS_CLOSE;
-		p->method = buffer_init_string("POST");
-		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method), ContentData, strlen(ContentData));
-		p->sock = -1;
-		memset(&p->http_status, 0, sizeof(p->http_status));
-	}
-	return ;
-}
+
 int main(int argc, char **argv)
 {
 	int i = 0;
@@ -74,6 +58,11 @@ int main(int argc, char **argv)
 	UNUSED(error_code);
 	UNUSED(cur_time);
 	UNUSED(last_time);
+	if(argc != 2)
+	{
+		log_error_write(__func__, __LINE__, "sss", "[Usage: ]", argv[0], "httUrl");
+		return -1;
+	}
 	p = (const char *)strrchr(argv[0], '/');
 	if(p == NULL)
 	{
@@ -103,11 +92,22 @@ int main(int argc, char **argv)
 		abort();
 	}
 	/**init*/
-	init_url_array(url_data_array, IP_SUM);
+	for(i = 0; i < 1; i++)
+	{
+		int error_number = NO_ERROR;
+		user_url_data_t *p = url_data_array + i;
+		p->urloriginal = buffer_init_string(argv[1]);
+		p->urlparse = url_parse(url_data_array[i].urloriginal->ptr, &error_number);
+		p->connect_status = CONNECT_STATUS_CLOSE;
+		p->method = buffer_init_string("POST");
+		p->req = ini_request_head_without_auth(p->urlparse, buffer_get_c_string(p->method), ContentData, strlen(ContentData));
+		p->sock = -1;
+		memset(&p->http_status, 0, sizeof(p->http_status));
+	}
 
 	/*progressing*/
 	log_error_write(__func__, __LINE__, "s", "Init Success");
-	while(!is_exit)
+	do
 	{
 		FD_ZERO(&rfds);
 		FD_ZERO(&wfds);
@@ -262,43 +262,10 @@ int main(int argc, char **argv)
 
 					log_error_write(__func__, __LINE__, "d", http_status->stat_code);
 					/*end of communication*/
-					if((http_status->stat_code == HTTP_STATUS_OK || http_status->stat_code == HTTP_STATUS_NOT_FOUND) &&
-							http_status->content_data != NULL&&
-							strcasecmp(http_status->server, "embed httpd") == 0)
-					{
-						fprintf(stderr, "%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal), "Look like Yealink Device");
-						log_error_write(__func__, __LINE__, "s", "Look like Yealink Device");
-					}
-					else if(http_status->stat_code == HTTP_STATUS_OK &&
+					if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data != NULL)
 					{
-						JsonNode *json = NULL;
-						JsonNode *node = NULL;
-					//	fprintf(stderr, "%s\n", http_status->content_data);
-						json = json_decode(http_status->content_data);
-						if(json == NULL)
-						{
-							log_error_write(__func__, __LINE__, "s", "json == NULL");
-						}
-						else
-						{
-							node = json_find_member(json, "product_name");
-							if(node != NULL)
-							{
-								if((p = json_stringify(node, NULL)) != NULL)
-								{
-									fprintf(stderr, "%s\t%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal) + sizeof("http://admin:admin@") - 1,
-											"Atcom Device", p);
-									log_error_write(__func__, __LINE__, "sss",
-											buffer_get_c_string(url_data_array[i].urloriginal),
-											"Atcom Device", p);
-								}
-							}
-							else
-							{
-								log_error_write(__func__, __LINE__, "s", "node == NULL");
-							}
-						}
+						log_error_write(__func__, __LINE__, "s", http_status->content_data);
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
 							http_status->content_data == NULL)
@@ -343,7 +310,7 @@ int main(int argc, char **argv)
 		}
 		log_error_write(__func__, __LINE__, "s", "clean over");
 		//sleep(1);
-	}
+	}while(1);
 	log_error_write(__func__, __LINE__, "s", "exec over");
 	for(i = 0; i < IP_SUM; i++)
 	{

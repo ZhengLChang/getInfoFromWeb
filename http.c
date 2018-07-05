@@ -1303,11 +1303,6 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method,
 	meth_arg = url_full_path (u);
 	request_set_method (req, method, meth_arg);
 
-    request_set_header (req, "User-Agent",                               \
-                        aprintf ("Atcom/%s (%s)",                         \
-                        		"1.0", "Linux"),                        \
-                        rel_value);
-    request_set_header (req, "Accept", "*/*", rel_none);
     /* Generate the Host header, HOST:PORT.  Take into account that:
 
        - Broken server-side software often doesn't recognize the PORT
@@ -1329,16 +1324,6 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method,
                           rel_value);
     }
 
-    request_set_header (req, "Connection", "Keep-Alive", rel_none);
-    request_set_header (req, "Content-Encoding", "application/x-www-form-urlencoded; charset=UTF-8", rel_none);
-   // request_set_header (req, "Cookie", "v=AVdubXP2waqui0Um-hR6VDAO4MCknCuVBXCvcqmEcyaN2Hm0sWy7ThVAP-W5", rel_none);
-   // request_set_header (req, "If-Modified-Since", "Mon, 13 Nov 2017 14:51:01 GMT", rel_none);
-   // request_set_header (req, "Cookie", "spversion=20130314; Hm_lvt_78c58f01938e4d85eaf619eae71b4ed1=1510241482; Hm_lpvt_78c58f01938e4d85eaf619eae71b4ed1=1510584498; historystock=601989%7C*%7C000538%7C*%7C002594; v=AXlAAyEMB2ycAdv1usl8UsLUju5Whm04V3qRzJuu9aAfIpca49Z9COfKoZ4r", rel_none);
-    request_set_header (req, "Accept", "text/plain, */*; q=0.01", rel_none);
-    request_set_header (req, "Accept-Encoding", "gzip, deflate", rel_none);
-    request_set_header (req, "Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8", rel_none);
-    request_set_header (req, "Content-Type", "application/x-www-form-urlencoded; charset=UTF-8", rel_none);
-
 #if 0
     request_set_header (req, "", "", rel_none);
 #endif
@@ -1347,7 +1332,6 @@ struct request *ini_request_head_without_auth(struct url *u, const char *method,
     	char *str = xmalloc(64);
 		request_set_data(req, data, dataLen);
 		snprintf(str, sizeof(str), "%d", dataLen);
-		request_set_header (req, "X-Requested-With", "XMLHttpRequest", rel_none);
 		request_set_header (req, "Content-Length", str, rel_value);
     }
     return req;
