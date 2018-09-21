@@ -603,4 +603,8 @@ void reversion_transfer_code(const char *in, size_t inLen, char *out, size_t out
 	return;
 }
 
+void clear_screen()
+{
+  write(STDOUT_FILENO, ARRAY_STR_LEN("\033[H\033[J"));
+}
 
