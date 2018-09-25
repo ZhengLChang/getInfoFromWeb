@@ -18,7 +18,7 @@ static void signal_handler(int sig)
 			fprintf(stderr, "SIGINT\n");
 			break;
 		case SIGCHLD:
-			fprintf(stderr, "SIGINT\n");
+			fprintf(stderr, "SIGCHLD\n");
 			break;
 	}
 	return;
@@ -161,6 +161,7 @@ int main(int argc, char **argv)
 			{
 				break;
 			}
+      sleep(2);
 			retval = select(nfds, &rfds, NULL, NULL, &timeout);
 			if(retval == -1)
 			{
@@ -267,6 +268,7 @@ int main(int argc, char **argv)
 							}
 							if(nameStr && todayStartPriStr && yesterdayEndPriStr && curPriStr && maxPriStr && minPriStr)
 							{
+                //clear_screen();
 							snprintf(rateStr, sizeof(rateStr), "%.2f", (atof(curPriStr) - atof(yesterdayEndPriStr)) / atof(yesterdayEndPriStr) * 100);
 							log_error_write(__func__, __LINE__, "sSssssssss", "name: ", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr, "rate: ", rateStr);
 							}
@@ -359,7 +361,7 @@ int main(int argc, char **argv)
 			}
 			}
 		}
-		sleep(25);
+		sleep(12);
 	}
 	for(i = 0; i < cfg_size; i++)
 	{
