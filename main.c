@@ -161,7 +161,7 @@ int main(int argc, char **argv)
 			{
 				break;
 			}
-      sleep(2);
+      sleep(14);
 			retval = select(nfds, &rfds, NULL, NULL, &timeout);
 			if(retval == -1)
 			{
@@ -172,6 +172,7 @@ int main(int argc, char **argv)
 			{
 				log_error_write(__func__, __LINE__, "s", "select timeout");
 			}
+      clear_screen();
 			for(i = 0; i < cfg_size && retval > 0; i++)
 			{
 				if(url_data_array[i].connect_status == CONNECT_STATUS_ERROR ||
@@ -268,7 +269,6 @@ int main(int argc, char **argv)
 							}
 							if(nameStr && todayStartPriStr && yesterdayEndPriStr && curPriStr && maxPriStr && minPriStr)
 							{
-                //clear_screen();
 							snprintf(rateStr, sizeof(rateStr), "%.2f", (atof(curPriStr) - atof(yesterdayEndPriStr)) / atof(yesterdayEndPriStr) * 100);
 							log_error_write(__func__, __LINE__, "sSssssssss", "name: ", nameStr, "cur: ", curPriStr, "min: ", minPriStr, "max: ", maxPriStr, "rate: ", rateStr);
 							}
@@ -361,7 +361,7 @@ int main(int argc, char **argv)
 			}
 			}
 		}
-		sleep(12);
+	//	sleep(12);
 	}
 	for(i = 0; i < cfg_size; i++)
 	{
@@ -396,6 +396,7 @@ int main(int argc, char **argv)
 	}
 	cfg_free(cfg_head);
 	log_error_write(__func__, __LINE__, "s", "Everything is done, Goodbye");
+  clear_screen();
 	log_error_close();
 	return 0;
 }
