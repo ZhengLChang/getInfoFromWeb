@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 	if((pid = getPidByName(p)) > 0 && pid != getpid())
 	{
 		log_error_write(__func__, __LINE__, "ss", p, " is running");
-		return (-1);
+		//return (-1);
 	}
 	set_signal_handler (SIGCHLD, signal_handler);
 	set_signal_handler (SIGINT, signal_handler);
@@ -232,7 +232,7 @@ int main(int argc, char **argv)
 					head = read_http_response_head (sock);
 					if(head == NULL || head[0] == '\0')
 					{
-						fprintf(stderr, "%s %d respond head is empty\n", __func__, __LINE__);
+//						fprintf(stderr, "%s %d respond head is empty\n", __func__, __LINE__);
 						log_error_write(__func__, __LINE__, "s", "respond head is empty");
 						url_data_array[i].connect_status = CONNECT_STATUS_ERROR;
 						continue;
@@ -268,7 +268,7 @@ int main(int argc, char **argv)
 							http_status->server != NULL &&
 							strcasecmp(http_status->server, "embed httpd") == 0)
 					{
-						fprintf(stderr, "%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal), "Look like Yealink Device");
+						fprintf(stderr, "%-50s\t\033[31;1m%-20s\033[39;49;0m\n", buffer_get_c_string(url_data_array[i].urloriginal) + sizeof("http://admin:admin@") - 1, "Look like Yealink Device");
 						log_error_write(__func__, __LINE__, "s", "Look like Yealink Device");
 					}
 					else if(http_status->stat_code == HTTP_STATUS_OK &&
@@ -290,11 +290,19 @@ int main(int argc, char **argv)
 								char *str = NULL;
 								if((str = json_stringify(node, NULL)) != NULL)
 								{
-									fprintf(stderr, "%s\t%s\t%s\n", buffer_get_c_string(url_data_array[i].urloriginal) + sizeof("http://admin:admin@") - 1,
-											"Atcom Device", str);
+//                  write(STDOUT_FILENO, ARRAY_STR_LEN("\033[31;1m\033[39;49;0m"));
+                  fprintf(stderr, "%-50s\t%-20s\t", buffer_get_c_string(url_data_array[i].urloriginal) + sizeof("http://admin:admin@") - 1, "Atcom Device");
+                  if(str[0] == '\0')
+                  {
+                    fprintf(stderr, "\033[31;1m%30s\033[39;49;0m\n", "ZhongXing or Phoneserver Death");
+                  }
+                  else
+                  {
+                    fprintf(stderr, "%30s\n", str);
+                  }
 									log_error_write(__func__, __LINE__, "sss",
 											buffer_get_c_string(url_data_array[i].urloriginal),
-											"Atcom Device", str);
+											"Atcom Device", (str[0] != '\0' ? str : "ZhongXing or Phoneserver Death"));
 									xfree(str);
 								}
 							}
